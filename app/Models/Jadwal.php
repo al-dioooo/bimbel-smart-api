@@ -20,7 +20,6 @@ class Jadwal extends Model
      */
     protected $fillable = [
         'kelas_id',
-        'mentor_id',
 
         'tanggal',
         'waktu_mulai',
@@ -32,11 +31,6 @@ class Jadwal extends Model
     public function kelas()
     {
         return $this->belongsTo(Kelas::class);
-    }
-
-    public function mentor()
-    {
-        return $this->belongsTo(Mentor::class);
     }
 
     /**
@@ -64,8 +58,6 @@ class Jadwal extends Model
             $query->whereHas('kelas', function ($query) use ($mappedValue) {
                 $query->where('nama', 'like', '%' . $mappedValue . '%');
             });
-        })->when($filters['mentor_id'] ?? null, function ($query, $value) use ($table) {
-            $query->where("{$table}.mentor_id",  $value);
         })->when($filters['kelas_id'] ?? null, function ($query, $value) use ($table) {
             $query->where("{$table}.kelas_id",  $value);
         })->when(($filters['from'] ?? null) && ($filters['to'] ?? null), function ($query) use ($filters, $table) {

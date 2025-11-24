@@ -17,7 +17,6 @@ return new class extends Migration
             $table->id();
 
             $table->foreignIdFor(Kelas::class)->nullable()->constrained()->nullOnDelete();
-            $table->foreignIdFor(Mentor::class)->nullable()->constrained()->nullOnDelete();
 
             $table->date('tanggal');
             $table->time('waktu_mulai');

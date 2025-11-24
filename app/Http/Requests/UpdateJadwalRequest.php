@@ -23,7 +23,6 @@ class UpdateJadwalRequest extends FormRequest
     {
         return [
             'kelas_id' => ['sometimes', 'exists:kelas,id'],
-            'mentor_id' => ['sometimes', 'exists:mentor,id'],
 
             'tanggal' => ['sometimes', 'date'],
             'waktu_mulai' => ['sometimes', 'date_format:H:i'],

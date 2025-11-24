@@ -23,7 +23,6 @@ class StoreJadwalRequest extends FormRequest
     {
         return [
             'kelas_id' => ['required', 'exists:kelas,id'],
-            'mentor_id' => ['required', 'exists:mentor,id'],
 
             'tanggal' => ['required', 'date'],
             'waktu_mulai' => ['required', 'date_format:H:i'],
