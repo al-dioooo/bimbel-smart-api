@@ -14,7 +14,10 @@ class SiswaController extends Controller
      */
     public function index(Request $request)
     {
-        $data = Siswa::filter($request->only(['search', 'nama', 'kelas']))->latest()->get();
+        $query = Siswa::with(['kelas'])
+            ->join('kelas', 'siswa.kelas_id', '=', 'kelas.id')->select(['siswa.*', 'kelas.nama as kelas_nama'])
+            ->filter($request->only(['search', 'nama', 'kelas', 'from', 'to']));
+        $data = $this->paginate($query, $request->query('limit') ?? 15, $request->query('paginate'), $request->query('order_by') ?? "created_at", $request->query('direction') ?? "desc");
 
         return response()->json([
             'message' => 'Successfully get siswa data.',

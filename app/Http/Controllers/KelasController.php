@@ -7,7 +7,6 @@ use App\Http\Requests\UpdateKelasRequest;
 use App\Models\Kelas;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Laravel\Pail\Handler;
 
 class KelasController extends Controller
 {
@@ -16,7 +15,8 @@ class KelasController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Kelas::filter($request->only(['search', 'nama', 'tingkat']));
+        $query = Kelas::with(['mentor.user'])
+            ->filter($request->only(['search', 'nama', 'tingkat', 'from', 'to']));
         $data = $this->paginate($query, $request->query('limit') ?? 15, $request->query('paginate'), $request->query('order_by') ?? "created_at", $request->query('direction') ?? "desc");
 
         return response()->json([
@@ -41,7 +41,7 @@ class KelasController extends Controller
                 'message' => 'Successfully store kelas data.',
                 'data' => $kelas
             ], 201);
-        } catch (Handler $e) {
+        } catch (\Throwable $e) {
             DB::rollBack();
 
             return response()->json([
@@ -78,7 +78,7 @@ class KelasController extends Controller
                 'message' => 'Successfully update kelas data.',
                 'data' => $kelas
             ], 200);
-        } catch (Handler $e) {
+        } catch (\Throwable $e) {
             DB::rollBack();
 
             return response()->json([
@@ -103,7 +103,7 @@ class KelasController extends Controller
             return response()->json([
                 'message' => 'Successfully delete kelas data.'
             ], 200);
-        } catch (Handler $e) {
+        } catch (\Throwable $e) {
             DB::rollBack();
 
             return response()->json([

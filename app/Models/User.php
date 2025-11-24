@@ -20,8 +20,10 @@ class User extends Authenticatable
      */
     protected $fillable = [
         'name',
+        'username',
         'email',
         'password',
+        'role'
     ];
 
     /**
@@ -45,5 +47,20 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    public function mentor()
+    {
+        return $this->hasOne(Mentor::class, 'user_id');
+    }
+
+    public function isAdmin(): bool
+    {
+        return $this->role === 1;
+    }
+
+    public function isMentor(): bool
+    {
+        return $this->role === 0;
     }
 }

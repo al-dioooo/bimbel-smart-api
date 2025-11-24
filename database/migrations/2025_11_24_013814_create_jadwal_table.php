@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Kelas;
 use App\Models\Mentor;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
@@ -12,13 +13,18 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('kelas', function (Blueprint $table) {
+        Schema::create('jadwal', function (Blueprint $table) {
             $table->id();
 
+            $table->foreignIdFor(Kelas::class)->nullable()->constrained()->nullOnDelete();
             $table->foreignIdFor(Mentor::class)->nullable()->constrained()->nullOnDelete();
-            $table->string('nama');
-            $table->string('tingkat');
-            
+
+            $table->date('tanggal');
+            $table->time('waktu_mulai');
+            $table->time('waktu_selesai');
+
+            $table->string('materi')->nullable();
+
             $table->timestamps();
         });
     }
@@ -28,6 +34,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('kelas');
+        Schema::dropIfExists('jadwal');
     }
 };

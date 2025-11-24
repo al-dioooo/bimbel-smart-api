@@ -7,6 +7,13 @@ use Illuminate\Database\Eloquent\Model;
 class Mentor extends Model
 {
     /**
+     * The table associated with the model.
+     *
+     * @var string
+     */
+    protected $table = 'mentor';
+
+    /**
      * The attributes that are mass assignable.
      *
      * @var array
@@ -16,6 +23,11 @@ class Mentor extends Model
 
         'kontak'
     ];
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
 
     /**
      * Resource filter function.
@@ -46,10 +58,6 @@ class Mentor extends Model
         })->when(($filters['from'] ?? null) && ($filters['to'] ?? null), function ($query) use ($filters, $table) {
             $query->whereDate("{$table}.created_at", '>=', $filters['from'])
                 ->whereDate("{$table}.created_at", '<=', $filters['to']);
-        })->when($filters['pivot'] ?? null, function ($query, $value) {
-            if ($value === 'with') {
-                $query->with(['attributeDataPivots', 'discountPivots', 'rewardPivots']);
-            }
         });
     }
 }

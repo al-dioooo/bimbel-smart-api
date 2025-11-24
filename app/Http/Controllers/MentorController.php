@@ -14,7 +14,8 @@ class MentorController extends Controller
      */
     public function index(Request $request)
     {
-        $data = Mentor::filter($request->only(['search', 'kontak']))->latest()->get();
+        $query = Mentor::with(['user'])->filter($request->only(['search', 'kontak']));
+        $data = $this->paginate($query, $request->query('limit') ?? 15, $request->query('paginate'), $request->query('order_by') ?? "created_at", $request->query('direction') ?? "desc");
 
         return response()->json([
             'message' => 'Successfully get mentor data.',

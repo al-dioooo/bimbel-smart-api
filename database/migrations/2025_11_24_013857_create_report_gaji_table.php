@@ -12,13 +12,15 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('kelas', function (Blueprint $table) {
+        Schema::create('report_gaji', function (Blueprint $table) {
             $table->id();
 
             $table->foreignIdFor(Mentor::class)->nullable()->constrained()->nullOnDelete();
-            $table->string('nama');
-            $table->string('tingkat');
-            
+
+            $table->date('bulan');
+            $table->unsignedInteger('jumlah_kehadiran');
+            $table->double('total_gaji', 17, 2);
+
             $table->timestamps();
         });
     }
@@ -28,6 +30,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('kelas');
+        Schema::dropIfExists('report_gaji');
     }
 };

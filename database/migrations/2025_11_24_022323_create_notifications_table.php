@@ -12,15 +12,14 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('mentor', function (Blueprint $table) {
+        Schema::create('notifications', function (Blueprint $table) {
             $table->id();
-            
-            $table->foreignIdFor(User::class)->constrained()->cascadeOnDelete();
 
-            $table->string('tempat_tanggal_lahir')->nullable();
-            $table->string('kontak', 100)->nullable();
-            $table->string('nik', 16)->nullable();
-            $table->string('npwp', 25)->nullable();
+            $table->foreignIdFor(User::class)->constrained();
+
+            $table->string('title');
+            $table->text('message');
+            $table->boolean('is_read')->default(false);
 
             $table->timestamps();
         });
@@ -31,6 +30,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('mentor');
+        Schema::dropIfExists('notifications');
     }
 };

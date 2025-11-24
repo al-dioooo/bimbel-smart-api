@@ -20,8 +20,16 @@ class Kelas extends Model
      */
     protected $fillable = [
         'nama',
+
+        'mentor_id',
+
         'tingkat'
     ];
+
+    public function mentor()
+    {
+        return $this->belongsTo(Mentor::class);
+    }
 
     /**
      * Resource filter function.
@@ -54,10 +62,6 @@ class Kelas extends Model
         })->when(($filters['from'] ?? null) && ($filters['to'] ?? null), function ($query) use ($filters, $table) {
             $query->whereDate("{$table}.created_at", '>=', $filters['from'])
                 ->whereDate("{$table}.created_at", '<=', $filters['to']);
-        })->when($filters['pivot'] ?? null, function ($query, $value) {
-            if ($value === 'with') {
-                $query->with(['attributeDataPivots', 'discountPivots', 'rewardPivots']);
-            }
         });
     }
 }
