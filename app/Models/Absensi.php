@@ -12,4 +12,19 @@ class Absensi extends Model
      * @var string
      */
     protected $table = 'absensi';
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array
+     */
+    protected $fillable = [
+        'jadwal_id',
+        'siswa_id',
+
+        'tanggal',
+        'status',
+
+        'is_open'
+    ];
 }

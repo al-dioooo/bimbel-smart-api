@@ -5,23 +5,24 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreAbsensiRequest;
 use App\Http\Requests\UpdateAbsensiRequest;
 use App\Models\Absensi;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class AbsensiController extends Controller
 {
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        //
-    }
+        $query = Absensi::with(['jadwal', 'siswa'])
+            ->filter($request->only(['search', 'from', 'to']));
+        $data = $query->get();
 
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
-    {
-        //
+        return response()->json([
+            'message' => 'Successfully get absensi data.',
+            'data' => $data
+        ]);
     }
 
     /**
@@ -29,7 +30,25 @@ class AbsensiController extends Controller
      */
     public function store(StoreAbsensiRequest $request)
     {
-        //
+        DB::beginTransaction();
+
+        try {
+            // $kelas = Kelas::create($request->validated());
+
+            // DB::commit();
+
+            // return response()->json([
+            //     'message' => 'Successfully store kelas data.',
+            //     'data' => $kelas
+            // ], 201);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'message' => 'Failed to store absensi data.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     /**

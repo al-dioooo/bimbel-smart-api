@@ -11,7 +11,7 @@ class UpdateJadwalRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return false;
+        return auth('sanctum')->check();
     }
 
     /**
@@ -22,7 +22,14 @@ class UpdateJadwalRequest extends FormRequest
     public function rules(): array
     {
         return [
-            //
+            'kelas_id' => ['sometimes', 'exists:kelas,id'],
+            'mentor_id' => ['sometimes', 'exists:mentor,id'],
+
+            'tanggal' => ['sometimes', 'date'],
+            'waktu_mulai' => ['sometimes', 'date_format:H:i'],
+            'waktu_selesai' => ['sometimes', 'date_format:H:i', 'required_with:waktu_mulai', 'after:waktu_mulai'],
+
+            'materi' => ['nullable', 'string', 'max:255']
         ];
     }
 }

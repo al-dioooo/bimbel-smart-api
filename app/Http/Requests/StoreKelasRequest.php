@@ -11,8 +11,7 @@ class StoreKelasRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return true;
-        // return auth()->guard('sanctum')->check();
+        return auth('sanctum')->check();
     }
 
     /**
@@ -23,8 +22,13 @@ class StoreKelasRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'nama' => 'required|string|max:255',
-            'tingkat' => 'required|string|max:255',
+            'nama' => ['required', 'string', 'max:255'],
+            'tingkat' => ['required', 'string', 'max:255'],
+            'mentor_id' => ['required', 'integer', 'exists:mentor,id'],
+
+            // Relationships
+            'siswa' => ['sometimes', 'array'],
+            'siswa.*' => ['integer', 'exists:siswa,id']
         ];
     }
 }

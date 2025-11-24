@@ -22,6 +22,8 @@ return new class extends Migration
             $table->date('tanggal');
             $table->char('status', 1)->default('h'); // h: hadir, i: izin, s: sakit, a: alpa
 
+            $table->boolean('is_open')->default(true);
+
             $table->timestamps();
         });
     }

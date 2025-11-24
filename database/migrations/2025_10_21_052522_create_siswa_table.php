@@ -19,6 +19,7 @@ return new class extends Migration
             $table->foreignIdFor(Kelas::class)->nullable()->constrained()->nullOnDelete();
 
             // Student detail fields
+            $table->string('tempat_tanggal_lahir')->nullable();
             $table->string('kontak')->nullable();
             $table->text('alamat')->nullable();
             $table->string('asal_sekolah')->nullable();
@@ -28,8 +29,7 @@ return new class extends Migration
             $table->string('kontak_wali')->nullable();
             $table->string('pekerjaan_wali')->nullable();
             $table->text('alamat_wali')->nullable();
-
-            $table->boolean('is_active')->default(true);
+            
             $table->dateTime('tanggal_bergabung')->useCurrent();
             $table->timestamps();
         });

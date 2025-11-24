@@ -11,7 +11,7 @@ class StoreSiswaRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return false;
+        return auth('sanctum')->check();
     }
 
     /**
@@ -22,7 +22,17 @@ class StoreSiswaRequest extends FormRequest
     public function rules(): array
     {
         return [
-            //
+            'nama' => ['required', 'string', 'max:255'],
+            'kelas_id' => ['nullable', 'exists:kelas,id'],
+            'kontak' => ['nullable', 'string', 'max:100'],
+            'alamat' => ['nullable', 'string'],
+            'tempat_tanggal_lahir' => ['nullable', 'string', 'max:255'],
+            'asal_sekolah' => ['nullable', 'string', 'max:255'],
+            'nama_wali' => ['nullable', 'string', 'max:255'],
+            'kontak_wali' => ['nullable', 'string', 'max:100'],
+            'pekerjaan_wali' => ['nullable', 'string', 'max:255'],
+            'alamat_wali' => ['nullable', 'string'],
+            // 'tanggal_bergabung' => ['nullable', 'date'],
         ];
     }
 }

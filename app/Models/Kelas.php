@@ -31,6 +31,11 @@ class Kelas extends Model
         return $this->belongsTo(Mentor::class);
     }
 
+    public function siswa()
+    {
+        return $this->hasMany(Siswa::class);
+    }
+
     /**
      * Resource filter function.
      *

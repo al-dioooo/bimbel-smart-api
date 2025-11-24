@@ -11,7 +11,7 @@ class StoreAturanGajiRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return false;
+        return auth('sanctum')->check();
     }
 
     /**
@@ -22,7 +22,8 @@ class StoreAturanGajiRequest extends FormRequest
     public function rules(): array
     {
         return [
-            //
+            'kelas_id' => ['required', 'exists:kelas,id'],
+            'tarif' => ['required', 'numeric', 'min:0']
         ];
     }
 }

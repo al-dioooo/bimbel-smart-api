@@ -21,7 +21,11 @@ class Mentor extends Model
     protected $fillable = [
         'user_id',
 
-        'kontak'
+        'tempat_tanggal_lahir',
+        'kontak',
+        'nik',
+        'npwp',
+        'alamat'
     ];
 
     public function user()
@@ -51,8 +55,9 @@ class Mentor extends Model
 
             $mappedValue = implode("%", $mappedValueArray);
 
-            // $query->whereFullText(["{$table}.name", "{$table}.long_name", "{$table}.sku"], $mappedValue, ['mode' => 'boolean', '']);
-            $query->where("{$table}.kontak", 'like', '%' . $mappedValue . '%');
+            $query->where("{$table}.kontak", 'like', '%' . $mappedValue . '%')->orWhereRelation('user', 'name', 'like', '%' . $value . '%');
+        })->when($filters['nama'] ?? null, function ($query, $value) use ($table) {
+            $query->whereRelation('user', 'name', 'like', '%' . $value . '%');
         })->when($filters['kontak'] ?? null, function ($query, $value) use ($table) {
             $query->where("{$table}.kontak", 'like', '%' . $value . '%');
         })->when(($filters['from'] ?? null) && ($filters['to'] ?? null), function ($query) use ($filters, $table) {

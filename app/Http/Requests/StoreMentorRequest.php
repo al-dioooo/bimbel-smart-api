@@ -11,8 +11,7 @@ class StoreMentorRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        // return auth()->guard('sanctum')->check();
-        return true;
+        return auth('sanctum')->check();
     }
 
     /**
@@ -23,7 +22,18 @@ class StoreMentorRequest extends FormRequest
     public function rules(): array
     {
         return [
-            //
+            // User fields
+            'name' => 'required|string|max:255',
+            'username' => 'required|string|max:255|unique:users,username',
+            'email' => 'required|email|max:255|unique:users,email',
+            'password' => 'required|string|min:8',
+
+            // Mentor fields
+            'kontak' => 'nullable|string|max:100',
+            'tempat_tanggal_lahir' => 'nullable|string',
+            'nik' => 'nullable|string|max:16',
+            'npwp' => 'nullable|string|max:25',
+            'alamat' => 'nullable|string',
         ];
     }
 }

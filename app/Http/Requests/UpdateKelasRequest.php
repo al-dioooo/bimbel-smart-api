@@ -11,8 +11,7 @@ class UpdateKelasRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        // return auth()->guard('sanctum')->check();
-        return true;
+        return auth('sanctum')->check();
     }
 
     /**
@@ -23,8 +22,13 @@ class UpdateKelasRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'nama' => 'required|sometimes|string|max:255',
-            'tingkat' => 'required|sometimes|string|max:255'
+            'nama' => ['required', 'sometimes', 'string', 'max:255'],
+            'tingkat' => ['required', 'sometimes', 'string', 'max:255'],
+
+            // Relationships
+            'mentor_id' => ['required', 'sometimes', 'integer', 'exists:mentor,id'],
+            'siswa' => ['sometimes', 'array'],
+            'siswa.*' => ['integer', 'exists:siswa,id']
         ];
     }
 }

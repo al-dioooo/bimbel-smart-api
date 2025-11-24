@@ -11,7 +11,7 @@ class UpdateMentorRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return false;
+        return auth('sanctum')->check();
     }
 
     /**
@@ -22,7 +22,18 @@ class UpdateMentorRequest extends FormRequest
     public function rules(): array
     {
         return [
-            //
+            // User fields
+            'name' => 'sometimes|required|string|max:255',
+            'username' => 'sometimes|required|string|max:255|unique:users,username,' . $this->mentor->user_id,
+            'email' => 'sometimes|required|email|max:255|unique:users,email,' . $this->mentor->user_id,
+            'password' => 'nullable|string|min:8',
+
+            // Mentor fields
+            'kontak' => 'sometimes|nullable|string|max:100',
+            'tempat_tanggal_lahir' => 'sometimes|nullable|string',
+            'nik' => 'sometimes|nullable|string|max:16',
+            'npwp' => 'sometimes|nullable|string|max:25',
+            'alamat' => 'sometimes|nullable|string',
         ];
     }
 }

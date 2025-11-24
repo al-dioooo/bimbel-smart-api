@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Jadwal;
 use App\Models\Kelas;
 use App\Models\Mentor;
 use Illuminate\Database\Migrations\Migration;
@@ -16,8 +17,7 @@ return new class extends Migration
         Schema::create('pengajuan_jadwal', function (Blueprint $table) {
             $table->id();
 
-            $table->foreignIdFor(Mentor::class)->nullable()->constrained()->nullOnDelete();
-            $table->foreignIdFor(Kelas::class)->nullable()->constrained()->nullOnDelete();
+            $table->foreignIdFor(Jadwal::class)->nullable()->constrained()->nullOnDelete();
 
             $table->date('tanggal_sebelum');
             $table->date('tanggal_sesudah');
@@ -27,7 +27,9 @@ return new class extends Migration
             $table->time('waktu_selesai_sebelum');
             $table->time('waktu_selesai_sesudah');
 
-            $table->string('status', 25)->default('pending')->comment('pending, approved, rejected');
+            $table->string('alasan')->nullable();
+
+            $table->string('status', 25)->default('pending')->comment('pending, diterima, ditolak');
 
             $table->timestamps();
         });

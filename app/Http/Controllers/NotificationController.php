@@ -6,6 +6,7 @@ use App\Http\Requests\StoreNotificationRequest;
 use App\Http\Requests\UpdateNotificationRequest;
 use App\Models\Notification;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class NotificationController extends Controller
 {
@@ -28,7 +29,25 @@ class NotificationController extends Controller
      */
     public function store(StoreNotificationRequest $request)
     {
-        //
+        DB::beginTransaction();
+
+        try {
+            $notification = Notification::create($request->validated());
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Successfully store notification data.',
+                'data' => $notification
+            ], 201);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'message' => 'Failed to store notification data.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
@@ -36,7 +55,10 @@ class NotificationController extends Controller
      */
     public function show(Notification $notification)
     {
-        //
+        return response()->json([
+            'message' => 'Successfully get notification data.',
+            'data' => $notification
+        ]);
     }
 
     /**
@@ -52,6 +74,23 @@ class NotificationController extends Controller
      */
     public function destroy(Notification $notification)
     {
-        //
+        DB::beginTransaction();
+
+        try {
+            $notification->delete();
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Successfully delete not$notification data.'
+            ], 200);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'message' => 'Failed to delete not$notification data.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 }

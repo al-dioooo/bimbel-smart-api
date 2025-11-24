@@ -21,7 +21,18 @@ class Siswa extends Model
     protected $fillable = [
         'nama',
 
-        'kelas_id'
+        'kelas_id',
+
+        'kontak',
+        'alamat',
+        'tempat_tanggal_lahir',
+        'asal_sekolah',
+        'nama_wali',
+        'kontak_wali',
+        'pekerjaan_wali',
+        'alamat_wali',
+        
+        'tanggal_bergabung'
     ];
 
     /**
@@ -56,14 +67,17 @@ class Siswa extends Model
 
             $mappedValue = implode("%", $mappedValueArray);
 
-            // $query->whereFullText(["{$table}.name", "{$table}.long_name", "{$table}.sku"], $mappedValue, ['mode' => 'boolean', '']);
-            $query->where("{$table}.nama", 'like', '%' . $mappedValue . '%');
+            $query->where("{$table}.nama", 'like', '%' . $mappedValue . '%')->orWhere("{$table}.kontak", 'like', '%' . $mappedValue . '%');
         })->when($filters['nama'] ?? null, function ($query, $value) use ($table) {
             $query->where("{$table}.nama", 'like', '%' . $value . '%');
         })->when($filters['kelas'] ?? null, function ($query, $value) use ($table) {
             $query->whereHas('kelas', function ($query) use ($value) {
-                $query->where("nama", 'like', '%' . $value . '%')->orWhere("tingkat", 'like', '%' . $value . '%');
+                $query->where('id')->where("nama", 'like', '%' . $value . '%')->orWhere("tingkat", 'like', '%' . $value . '%');
             });
+        })->when($filters['kelas_id'] ?? null, function ($query, $value) {
+            $query->whereRelation('kelas', 'id', $value);
+        })->when($filters['no_kelas'] ?? null, function ($query) use ($table) {
+            $query->whereNull("{$table}.kelas_id");
         })->when(($filters['from'] ?? null) && ($filters['to'] ?? null), function ($query) use ($filters, $table) {
             $query->whereDate("{$table}.created_at", '>=', $filters['from'])
                 ->whereDate("{$table}.created_at", '<=', $filters['to']);

@@ -11,7 +11,7 @@ class StorePengajuanJadwalRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return false;
+        return auth('sanctum')->check();
     }
 
     /**
@@ -22,7 +22,18 @@ class StorePengajuanJadwalRequest extends FormRequest
     public function rules(): array
     {
         return [
-            //
+            'jadwal_id' => ['required', 'exists:jadwal,id'],
+            
+            'tanggal_sebelum' => ['required', 'date'],
+            'tanggal_sesudah' => ['required', 'date', 'after_or_equal:tanggal_sebelum'],
+            'waktu_mulai_sebelum' => ['required', 'date_format:H:i:s'],
+            'waktu_mulai_sesudah' => ['required', 'date_format:H:i:s'],
+            'waktu_selesai_sebelum' => ['required', 'date_format:H:i:s'],
+            'waktu_selesai_sesudah' => ['required', 'date_format:H:i:s'],
+
+            'alasan' => ['nullable', 'string'],
+
+            'status' => ['nullable', 'in:pending,diterima,ditolak']
         ];
     }
 }

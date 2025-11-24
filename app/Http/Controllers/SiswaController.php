@@ -6,6 +6,7 @@ use App\Http\Requests\StoreSiswaRequest;
 use App\Http\Requests\UpdateSiswaRequest;
 use App\Models\Siswa;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class SiswaController extends Controller
 {
@@ -15,9 +16,8 @@ class SiswaController extends Controller
     public function index(Request $request)
     {
         $query = Siswa::with(['kelas'])
-            ->join('kelas', 'siswa.kelas_id', '=', 'kelas.id')->select(['siswa.*', 'kelas.nama as kelas_nama'])
-            ->filter($request->only(['search', 'nama', 'kelas', 'from', 'to']));
-        $data = $this->paginate($query, $request->query('limit') ?? 15, $request->query('paginate'), $request->query('order_by') ?? "created_at", $request->query('direction') ?? "desc");
+            ->filter($request->only(['search', 'nama', 'kelas', 'no_kelas', 'from', 'to']));
+        $data = $this->paginate($query, $request->query('limit') ?? 10, $request->query('paginate'), $request->query('order_by') ?? "created_at", $request->query('direction') ?? "desc");
 
         return response()->json([
             'message' => 'Successfully get siswa data.',
@@ -30,7 +30,25 @@ class SiswaController extends Controller
      */
     public function store(StoreSiswaRequest $request)
     {
-        //
+        DB::beginTransaction();
+
+        try {
+            $siswa = Siswa::create($request->validated());
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Successfully store siswa$siswa data.',
+                'data' => $siswa
+            ], 201);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'message' => 'Failed to store siswa data.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
@@ -38,7 +56,10 @@ class SiswaController extends Controller
      */
     public function show(Siswa $siswa)
     {
-        //
+        return response()->json([
+            'message' => 'Successfully get siswa data.',
+            'data' => $siswa
+        ]);
     }
 
     /**
@@ -46,7 +67,25 @@ class SiswaController extends Controller
      */
     public function update(UpdateSiswaRequest $request, Siswa $siswa)
     {
-        //
+        DB::beginTransaction();
+
+        try {
+            $siswa->update($request->validated());
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Successfully update siswa data.',
+                'data' => $siswa
+            ], 200);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'message' => 'Failed to update siswa data.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
@@ -54,6 +93,23 @@ class SiswaController extends Controller
      */
     public function destroy(Siswa $siswa)
     {
-        //
+        DB::beginTransaction();
+
+        try {
+            $siswa->delete();
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Successfully delete siswa data.'
+            ], 200);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'message' => 'Failed to delete siswa data.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 }

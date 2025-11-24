@@ -12,4 +12,19 @@ class ReportAbsensi extends Model
      * @var string
      */
     protected $table = 'report_absensi';
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array
+     */
+    protected $fillable = [
+        'from',
+        'to',
+        
+        'hadir',
+        'sakit',
+        'izin',
+        'alpa'
+    ];
 }

@@ -14,11 +14,13 @@ return new class extends Migration
         Schema::create('report_absensi', function (Blueprint $table) {
             $table->id();
 
-            $table->date('bulan');
-            $table->unsignedInteger('jumlah_hadir');
-            $table->unsignedInteger('jumlah_sakit');
-            $table->unsignedInteger('jumlah_izin');
-            $table->unsignedInteger('jumlah_alpa');
+            $table->date('from');
+            $table->date('to');
+
+            $table->unsignedInteger('hadir');
+            $table->unsignedInteger('sakit');
+            $table->unsignedInteger('izin');
+            $table->unsignedInteger('alpa');
 
             $table->timestamps();
         });

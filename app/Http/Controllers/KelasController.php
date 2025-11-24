@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreKelasRequest;
 use App\Http\Requests\UpdateKelasRequest;
 use App\Models\Kelas;
+use App\Models\Siswa;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -17,7 +18,7 @@ class KelasController extends Controller
     {
         $query = Kelas::with(['mentor.user'])
             ->filter($request->only(['search', 'nama', 'tingkat', 'from', 'to']));
-        $data = $this->paginate($query, $request->query('limit') ?? 15, $request->query('paginate'), $request->query('order_by') ?? "created_at", $request->query('direction') ?? "desc");
+        $data = $this->paginate($query, $request->query('limit') ?? 10, $request->query('paginate'), $request->query('order_by') ?? "created_at", $request->query('direction') ?? "desc");
 
         return response()->json([
             'message' => 'Successfully get kelas data.',
@@ -33,7 +34,17 @@ class KelasController extends Controller
         DB::beginTransaction();
 
         try {
-            $kelas = Kelas::create($request->validated());
+            $kelas = Kelas::create($request->validatedExcept('siswa'));
+
+            if ($request->has('siswa')) {
+                $ids = $request->input('siswa', []);
+
+                Siswa::whereIn('id', $ids)->update(['kelas_id' => $kelas->id]);
+                // dan mungkin clear siswa lain yang sebelumnya di kelas ini
+                Siswa::where('kelas_id', $kelas->id)
+                    ->whereNotIn('id', $ids)
+                    ->update(['kelas_id' => null]);
+            }
 
             DB::commit();
 
@@ -56,6 +67,8 @@ class KelasController extends Controller
      */
     public function show(Kelas $kelas)
     {
+        $kelas->load(['siswa']);
+
         return response()->json([
             'message' => 'Successfully get kelas data.',
             'data' => $kelas
@@ -70,7 +83,17 @@ class KelasController extends Controller
         DB::beginTransaction();
 
         try {
-            $kelas->update($request->validated());
+            $kelas->update($request->validatedExcept('siswa'));
+
+            if ($request->has('siswa')) {
+                $ids = $request->input('siswa', []);
+
+                Siswa::whereIn('id', $ids)->update(['kelas_id' => $kelas->id]);
+                // dan mungkin clear siswa lain yang sebelumnya di kelas ini
+                Siswa::where('kelas_id', $kelas->id)
+                    ->whereNotIn('id', $ids)
+                    ->update(['kelas_id' => null]);
+            }
 
             DB::commit();
 

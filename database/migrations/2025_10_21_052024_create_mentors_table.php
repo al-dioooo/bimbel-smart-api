@@ -14,13 +14,15 @@ return new class extends Migration
     {
         Schema::create('mentor', function (Blueprint $table) {
             $table->id();
-            
+
             $table->foreignIdFor(User::class)->constrained()->cascadeOnDelete();
 
             $table->string('tempat_tanggal_lahir')->nullable();
             $table->string('kontak', 100)->nullable();
             $table->string('nik', 16)->nullable();
             $table->string('npwp', 25)->nullable();
+            
+            $table->text('alamat')->nullable();
 
             $table->timestamps();
         });
