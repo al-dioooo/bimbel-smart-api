@@ -17,8 +17,10 @@ return new class extends Migration
 
             $table->foreignIdFor(User::class)->constrained();
 
+            $table->string('icon')->default('bell');
             $table->string('title');
             $table->text('message');
+            $table->string('link', 100)->nullable();
             $table->boolean('is_read')->default(false);
 
             $table->timestamps();

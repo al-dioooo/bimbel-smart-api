@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreKelasRequest;
 use App\Http\Requests\UpdateKelasRequest;
+use App\Models\AturanGaji;
 use App\Models\Kelas;
 use App\Models\Siswa;
 use Illuminate\Http\Request;
@@ -35,6 +36,10 @@ class KelasController extends Controller
 
         try {
             $kelas = Kelas::create($request->validatedExcept('siswa'));
+            $aturanGaji = AturanGaji::create([
+                'kelas_id' => $kelas->id,
+                'tarif' => 15000
+            ]);
 
             if ($request->has('siswa')) {
                 $ids = $request->input('siswa', []);

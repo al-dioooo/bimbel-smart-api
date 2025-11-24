@@ -12,4 +12,19 @@ class AturanGaji extends Model
      * @var string
      */
     protected $table = 'aturan_gaji';
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array
+     */
+    protected $fillable = [
+        'kelas_id',
+        'tarif'
+    ];
+
+    public function kelas()
+    {
+        return $this->belongsTo(Kelas::class);
+    }
 }
