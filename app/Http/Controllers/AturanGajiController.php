@@ -16,7 +16,9 @@ class AturanGajiController extends Controller
     public function index(Request $request)
     {
         $query = AturanGaji::with('kelas')
-            ->join('kelas', 'aturan_gaji.kelas_id', '=', 'kelas.id')->select(['aturan_gaji.*', 'kelas.nama as kelas_nama']);
+            ->join('kelas', 'aturan_gaji.kelas_id', '=', 'kelas.id')
+            ->select(['aturan_gaji.*', 'kelas.nama as kelas_nama'])
+            ->filter($request->only(['search', 'kelas_id']));
         $data = $this->paginate($query, $request->query('limit') ?? 10, $request->query('paginate'), $request->query('order_by') ?? "created_at", $request->query('direction') ?? "desc");
 
         return response()->json([
