@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreMentorRequest;
 use App\Http\Requests\UpdateMentorRequest;
+use App\Models\Kelas;
 use App\Models\Mentor;
+use App\Models\Notification;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -138,7 +140,21 @@ class MentorController extends Controller
         DB::beginTransaction();
 
         try {
-            $mentor->user->delete();
+            // Detach the mentor's classes, then remove the mentor and its user
+            // explicitly. Relying on the users -> mentor cascade left the order
+            // up to the driver, and failed on a foreign key under SQLite.
+            Kelas::where('mentor_id', $mentor->id)->update(['mentor_id' => null]);
+
+            $user = $mentor->user;
+            $mentor->delete();
+
+            if ($user) {
+                // notifications.user_id is a RESTRICT foreign key, so the user
+                // row cannot go while any notification still points at it.
+                Notification::where('user_id', $user->id)->delete();
+                $user->tokens()->delete();
+                $user->delete();
+            }
 
             DB::commit();
 
