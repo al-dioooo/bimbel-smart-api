@@ -16,7 +16,7 @@ class SiswaController extends Controller
     public function index(Request $request)
     {
         $query = Siswa::with(['kelas'])
-            ->filter($request->only(['search', 'nama', 'kelas', 'no_kelas', 'from', 'to']));
+            ->filter($request->only(['search', 'nama', 'kelas', 'kelas_id', 'no_kelas', 'from', 'to']));
         $data = $this->paginate($query, $request->query('limit') ?? 10, $request->query('paginate'), $request->query('order_by') ?? "created_at", $request->query('direction') ?? "desc");
 
         return response()->json([
