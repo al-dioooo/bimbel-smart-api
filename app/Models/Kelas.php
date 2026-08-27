@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Sql;
 use Illuminate\Database\Eloquent\Model;
 
 class Kelas extends Model
@@ -46,8 +47,10 @@ class Kelas extends Model
     public function scopeFilter($query, array $filters)
     {
         $table = $this->getTable();
+        // ILIKE on PostgreSQL; MySQL's default collation is already case insensitive.
+        $like = Sql::like();
 
-        $query->when($filters['search'] ?? null, function ($query, $value) use ($table) {
+        $query->when($filters['search'] ?? null, function ($query, $value) use ($table, $like) {
             $splittedValue = explode(' ', $value);
             $mappedValueArray = [];
 
@@ -59,9 +62,9 @@ class Kelas extends Model
             $mappedValue = implode("%", $mappedValueArray);
 
             // $query->whereFullText(["{$table}.name", "{$table}.long_name", "{$table}.sku"], $mappedValue, ['mode' => 'boolean', '']);
-            $query->where("{$table}.nama", 'like', '%' . $mappedValue . '%')->orWhere("{$table}.tingkat", 'like', '%' . $mappedValue . '%');
-        })->when($filters['nama'] ?? null, function ($query, $value) use ($table) {
-            $query->where("{$table}.nama", 'like', '%' . $value . '%');
+            $query->where("{$table}.nama", $like, '%' . $mappedValue . '%')->orWhere("{$table}.tingkat", $like, '%' . $mappedValue . '%');
+        })->when($filters['nama'] ?? null, function ($query, $value) use ($table, $like) {
+            $query->where("{$table}.nama", $like, '%' . $value . '%');
         })->when($filters['tingkat'] ?? null, function ($query, $value) use ($table) {
             $query->where("{$table}.tingkat", $value);
         })->when(($filters['from'] ?? null) && ($filters['to'] ?? null), function ($query) use ($filters, $table) {

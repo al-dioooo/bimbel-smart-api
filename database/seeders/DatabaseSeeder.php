@@ -23,7 +23,7 @@ class DatabaseSeeder extends Seeder
             'name' => 'Alice',
             'email' => 'hello@aliceevr.com',
             'role' => 1,
-            'password' => bcrypt('aldio1234')
+            'password' => bcrypt('password')
         ]);
 
         $mentor = User::factory()->create([
@@ -31,7 +31,7 @@ class DatabaseSeeder extends Seeder
             'name' => 'Uyoy',
             'email' => 'hello@imjeaansly.com',
             'role' => 0,
-            'password' => bcrypt('aldio1234')
+            'password' => bcrypt('password')
         ]);
 
         $this->call([
@@ -40,6 +40,9 @@ class DatabaseSeeder extends Seeder
             SiswaSeeder::class,
             JadwalSeeder::class,
             AturanGajiSeeder::class,
+            NotificationSeeder::class,
+            AbsensiSeeder::class,
+            PengajuanJadwalSeeder::class
         ]);
     }
 }

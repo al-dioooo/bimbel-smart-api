@@ -66,7 +66,25 @@ class NotificationController extends Controller
      */
     public function update(UpdateNotificationRequest $request, Notification $notification)
     {
-        //
+        DB::beginTransaction();
+
+        try {
+            $notification->update($request->validated());
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Successfully update notification data.',
+                'data' => $notification
+            ], 200);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'message' => 'Failed to update notification data.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
@@ -82,13 +100,13 @@ class NotificationController extends Controller
             DB::commit();
 
             return response()->json([
-                'message' => 'Successfully delete not$notification data.'
+                'message' => 'Successfully delete notification data.'
             ], 200);
         } catch (\Throwable $e) {
             DB::rollBack();
 
             return response()->json([
-                'message' => 'Failed to delete not$notification data.',
+                'message' => 'Failed to delete notification data.',
                 'error' => $e->getMessage()
             ], 500);
         }

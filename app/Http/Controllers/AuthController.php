@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\UpdateProfileRequest;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -29,7 +30,7 @@ class AuthController extends Controller
         }
 
         // If mentor, validate mentor profile
-        if ($user->role === 'mentor' && !$user->mentor) {
+        if ($user->isMentor() && !$user->mentor) {
             return response()->json([
                 'message' => 'Mentor profile is incomplete',
             ], 403);
@@ -55,6 +56,15 @@ class AuthController extends Controller
         $request->user()?->currentAccessToken()->delete();
 
         return response()->json(['message' => 'Logged out']);
+    }
+
+    public function updateProfile(UpdateProfileRequest $request)
+    {
+        $user = $request->user()->update($request->validated());
+
+        return response()->json([
+            'message' => 'Profile updated successfully'
+        ]);
     }
 
     public function me(Request $request)

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Sql;
 use Illuminate\Database\Eloquent\Model;
 
 class Siswa extends Model
@@ -55,8 +56,10 @@ class Siswa extends Model
     public function scopeFilter($query, array $filters)
     {
         $table = $this->getTable();
+        // ILIKE on PostgreSQL; MySQL's default collation is already case insensitive.
+        $like = Sql::like();
 
-        $query->when($filters['search'] ?? null, function ($query, $value) use ($table) {
+        $query->when($filters['search'] ?? null, function ($query, $value) use ($table, $like) {
             $splittedValue = explode(' ', $value);
             $mappedValueArray = [];
 
@@ -67,12 +70,12 @@ class Siswa extends Model
 
             $mappedValue = implode("%", $mappedValueArray);
 
-            $query->where("{$table}.nama", 'like', '%' . $mappedValue . '%')->orWhere("{$table}.kontak", 'like', '%' . $mappedValue . '%');
-        })->when($filters['nama'] ?? null, function ($query, $value) use ($table) {
-            $query->where("{$table}.nama", 'like', '%' . $value . '%');
-        })->when($filters['kelas'] ?? null, function ($query, $value) use ($table) {
-            $query->whereHas('kelas', function ($query) use ($value) {
-                $query->where('id')->where("nama", 'like', '%' . $value . '%')->orWhere("tingkat", 'like', '%' . $value . '%');
+            $query->where("{$table}.nama", $like, '%' . $mappedValue . '%')->orWhere("{$table}.kontak", $like, '%' . $mappedValue . '%');
+        })->when($filters['nama'] ?? null, function ($query, $value) use ($table, $like) {
+            $query->where("{$table}.nama", $like, '%' . $value . '%');
+        })->when($filters['kelas'] ?? null, function ($query, $value) use ($table, $like) {
+            $query->whereHas('kelas', function ($query) use ($value, $like) {
+                $query->where('id')->where("nama", $like, '%' . $value . '%')->orWhere("tingkat", $like, '%' . $value . '%');
             });
         })->when($filters['kelas_id'] ?? null, function ($query, $value) {
             $query->whereRelation('kelas', 'id', $value);

@@ -4,7 +4,7 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class StoreJadwalRequest extends FormRequest
+class UpdateProfileRequest extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -22,13 +22,10 @@ class StoreJadwalRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'kelas_id' => ['required', 'exists:kelas,id'],
-
-            'tanggal' => ['required', 'date'],
-            'waktu_mulai' => ['required', 'date_format:H:i'],
-            'waktu_selesai' => ['required', 'date_format:H:i', 'after:waktu_mulai'],
-            
-            'materi' => ['nullable', 'string', 'max:255']
+            'name' => 'sometimes|required|string|max:255',
+            'username' => 'sometimes|required|string|max:255|unique:users,username,' . auth('sanctum')->user()->id,
+            'email' => 'sometimes|required|email|max:255|unique:users,email,' . auth('sanctum')->user()->id,
+            'password' => 'nullable|string|min:8|confirmed'
         ];
     }
 }
