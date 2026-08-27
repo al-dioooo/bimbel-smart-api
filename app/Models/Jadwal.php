@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Sql;
 use Illuminate\Database\Eloquent\Model;
 
 class Jadwal extends Model
@@ -43,8 +44,10 @@ class Jadwal extends Model
     public function scopeFilter($query, array $filters)
     {
         $table = $this->getTable();
+        // ILIKE on PostgreSQL; MySQL's default collation is already case insensitive.
+        $like = Sql::like();
 
-        $query->when($filters['search'] ?? null, function ($query, $value) use ($table) {
+        $query->when($filters['search'] ?? null, function ($query, $value) use ($table, $like) {
             $splittedValue = explode(' ', $value);
             $mappedValueArray = [];
 
@@ -55,8 +58,8 @@ class Jadwal extends Model
 
             $mappedValue = implode("%", $mappedValueArray);
 
-            $query->whereHas('kelas', function ($query) use ($mappedValue) {
-                $query->where('nama', 'like', '%' . $mappedValue . '%');
+            $query->whereHas('kelas', function ($query) use ($mappedValue, $like) {
+                $query->where('nama', $like, '%' . $mappedValue . '%');
             });
         })->when($filters['kelas_id'] ?? null, function ($query, $value) use ($table) {
             $query->where("{$table}.kelas_id",  $value);
