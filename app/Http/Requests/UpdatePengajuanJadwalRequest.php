@@ -6,23 +6,24 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class UpdatePengajuanJadwalRequest extends FormRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
     public function authorize(): bool
     {
-        return false;
+        return auth('sanctum')->check();
     }
 
     /**
-     * Get the validation rules that apply to the request.
-     *
      * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
         return [
-            //
+            'status' => ['sometimes', 'required', 'string', 'in:pending,diterima,ditolak'],
+
+            'tanggal_sesudah' => ['sometimes', 'required', 'date'],
+            'waktu_mulai_sesudah' => ['sometimes', 'required', 'date_format:H:i,H:i:s'],
+            'waktu_selesai_sesudah' => ['sometimes', 'required', 'date_format:H:i,H:i:s', 'after:waktu_mulai_sesudah'],
+
+            'alasan' => ['sometimes', 'nullable', 'string', 'max:255'],
         ];
     }
 }
