@@ -2,65 +2,131 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\StoreReportAbsensiRequest;
-use App\Http\Requests\UpdateReportAbsensiRequest;
-use App\Models\ReportAbsensi;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class ReportAbsensiController extends Controller
 {
     /**
-     * Display a listing of the resource.
+     * Rekap absensi per kelas per bulan.
+     *
+     * There is no `report_absensi` table (the model pointed at one that was
+     * never migrated), so this is derived from `absensi` on read.
      */
-    public function index()
+    public function index(Request $request)
     {
-        //
+        $query = DB::table('absensi')
+            ->join('jadwal', 'jadwal.id', '=', 'absensi.jadwal_id')
+            ->join('kelas', 'kelas.id', '=', 'jadwal.kelas_id')
+            ->leftJoin('mentor', 'mentor.id', '=', 'kelas.mentor_id')
+            ->leftJoin('users', 'users.id', '=', 'mentor.user_id')
+            ->selectRaw("
+                kelas.id as kelas_id,
+                kelas.nama as kelas,
+                kelas.tingkat as tingkat,
+                users.name as mentor,
+                {$this->yearExpr('absensi.tanggal')} as tahun,
+                {$this->monthExpr('absensi.tanggal')} as bulan,
+                SUM(CASE WHEN absensi.status = 'h' THEN 1 ELSE 0 END) as hadir,
+                SUM(CASE WHEN absensi.status = 's' THEN 1 ELSE 0 END) as sakit,
+                SUM(CASE WHEN absensi.status = 'i' THEN 1 ELSE 0 END) as izin,
+                SUM(CASE WHEN absensi.status = 'a' THEN 1 ELSE 0 END) as alpa,
+                COUNT(absensi.id) as total
+            ")
+            ->groupBy('kelas.id', 'kelas.nama', 'kelas.tingkat', 'users.name', 'tahun', 'bulan');
+
+        if ($search = $request->query('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('kelas.nama', 'like', '%' . $search . '%')
+                    ->orWhere('users.name', 'like', '%' . $search . '%');
+            });
+        }
+
+        if ($kelasId = $request->query('kelas_id')) {
+            $query->where('kelas.id', $kelasId);
+        }
+
+        if (($from = $request->query('from')) && ($to = $request->query('to'))) {
+            $query->whereDate('absensi.tanggal', '>=', $from)
+                ->whereDate('absensi.tanggal', '<=', $to);
+        }
+
+        $allowedSorts = ['tahun', 'bulan', 'kelas', 'hadir', 'sakit', 'izin', 'alpa'];
+        $orderBy = in_array($request->query('order_by'), $allowedSorts, true)
+            ? $request->query('order_by')
+            : 'tahun';
+        $direction = $request->query('direction') === 'asc' ? 'asc' : 'desc';
+
+        $data = $this->paginate(
+            $query,
+            $request->query('limit') ?? 10,
+            $request->query('paginate'),
+            $orderBy,
+            $direction
+        );
+
+        return response()->json([
+            'message' => 'Successfully get report absensi data.',
+            'data' => $data
+        ], 200);
     }
 
     /**
-     * Show the form for creating a new resource.
+     * Per-siswa breakdown for one kelas.
      */
-    public function create()
+    public function show(Request $request, $kelasId)
     {
-        //
-    }
+        $query = DB::table('absensi')
+            ->join('jadwal', 'jadwal.id', '=', 'absensi.jadwal_id')
+            ->join('siswa', 'siswa.id', '=', 'absensi.siswa_id')
+            ->where('jadwal.kelas_id', $kelasId)
+            ->selectRaw("
+                siswa.id as siswa_id,
+                siswa.nama as siswa,
+                SUM(CASE WHEN absensi.status = 'h' THEN 1 ELSE 0 END) as hadir,
+                SUM(CASE WHEN absensi.status = 's' THEN 1 ELSE 0 END) as sakit,
+                SUM(CASE WHEN absensi.status = 'i' THEN 1 ELSE 0 END) as izin,
+                SUM(CASE WHEN absensi.status = 'a' THEN 1 ELSE 0 END) as alpa,
+                COUNT(absensi.id) as total
+            ")
+            ->groupBy('siswa.id', 'siswa.nama');
 
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(StoreReportAbsensiRequest $request)
-    {
-        //
-    }
+        if ($search = $request->query('search')) {
+            $query->where('siswa.nama', 'like', '%' . $search . '%');
+        }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(ReportAbsensi $reportAbsensi)
-    {
-        //
-    }
+        if (($from = $request->query('from')) && ($to = $request->query('to'))) {
+            $query->whereDate('absensi.tanggal', '>=', $from)
+                ->whereDate('absensi.tanggal', '<=', $to);
+        }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(ReportAbsensi $reportAbsensi)
-    {
-        //
-    }
+        $kelas = DB::table('kelas')
+            ->leftJoin('mentor', 'mentor.id', '=', 'kelas.mentor_id')
+            ->leftJoin('users', 'users.id', '=', 'mentor.user_id')
+            ->where('kelas.id', $kelasId)
+            ->select('kelas.id', 'kelas.nama', 'kelas.tingkat', 'users.name as mentor')
+            ->first();
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(UpdateReportAbsensiRequest $request, ReportAbsensi $reportAbsensi)
-    {
-        //
-    }
+        $allowedSorts = ['siswa', 'hadir', 'sakit', 'izin', 'alpa', 'total'];
+        $orderBy = in_array($request->query('order_by'), $allowedSorts, true)
+            ? $request->query('order_by')
+            : 'siswa';
+        $direction = $request->query('direction') === 'desc' ? 'desc' : 'asc';
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(ReportAbsensi $reportAbsensi)
-    {
-        //
+        $data = $this->paginate(
+            $query,
+            $request->query('limit') ?? 10,
+            $request->query('paginate'),
+            $orderBy,
+            $direction
+        );
+
+        return response()->json([
+            'message' => 'Successfully get report absensi detail.',
+            'data' => [
+                'kelas' => $kelas,
+                'rekap' => $data,
+            ]
+        ], 200);
     }
 }
