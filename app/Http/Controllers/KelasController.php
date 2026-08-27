@@ -38,7 +38,7 @@ class KelasController extends Controller
             $kelas = Kelas::create($request->validatedExcept('siswa'));
             $aturanGaji = AturanGaji::create([
                 'kelas_id' => $kelas->id,
-                'tarif' => 15000
+                'tarif' => 30000
             ]);
 
             if ($request->has('siswa')) {
