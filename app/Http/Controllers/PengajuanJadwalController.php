@@ -15,7 +15,7 @@ class PengajuanJadwalController extends Controller
      */
     public function index(Request $request)
     {
-        $query = PengajuanJadwal::with(['jadwal.mentor.user'])->filter($request->only(['search', 'mentor_id', 'status', 'from', 'to']));
+        $query = PengajuanJadwal::with(['jadwal.kelas.mentor.user'])->filter($request->only(['search', 'mentor_id', 'status', 'from', 'to']));
         $data = $this->paginate($query, $request->query('limit') ?? 10, $request->query('paginate'), $request->query('order_by') ?? "created_at", $request->query('direction') ?? "desc");
 
         return response()->json([
