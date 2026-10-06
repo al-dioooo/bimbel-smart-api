@@ -15,7 +15,7 @@ class JadwalController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Jadwal::with('kelas.mentor.user')->filter($request->only(['search', 'kelas_id', 'from', 'to']));
+        $query = Jadwal::with('kelas.mentor.user')->filter($request->only(['search', 'kelas_id', 'mentor_id', 'from', 'to']));
         $data = $this->paginate($query, $request->query('limit') ?? 10, $request->query('paginate'), $request->query('order_by') ?? "tanggal", $request->query('direction') ?? "desc");
 
         return response()->json([

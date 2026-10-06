@@ -63,6 +63,8 @@ class Jadwal extends Model
             });
         })->when($filters['kelas_id'] ?? null, function ($query, $value) use ($table) {
             $query->where("{$table}.kelas_id",  $value);
+        })->when($filters['mentor_id'] ?? null, function ($query, $value) {
+            $query->whereRelation('kelas', 'mentor_id', $value);
         })->when(($filters['from'] ?? null) && ($filters['to'] ?? null), function ($query) use ($filters, $table) {
             $query->whereDate("{$table}.tanggal", '>=', $filters['from'])
                 ->whereDate("{$table}.tanggal", '<=', $filters['to']);

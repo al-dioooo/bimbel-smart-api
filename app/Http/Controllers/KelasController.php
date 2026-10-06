@@ -18,7 +18,7 @@ class KelasController extends Controller
     public function index(Request $request)
     {
         $query = Kelas::with(['mentor.user'])
-            ->filter($request->only(['search', 'nama', 'tingkat', 'from', 'to']));
+            ->filter($request->only(['search', 'nama', 'tingkat', 'mentor_id', 'from', 'to']));
         $data = $this->paginate($query, $request->query('limit') ?? 10, $request->query('paginate'), $request->query('order_by') ?? "created_at", $request->query('direction') ?? "desc");
 
         return response()->json([

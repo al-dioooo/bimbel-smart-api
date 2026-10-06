@@ -46,6 +46,10 @@ class ReportAbsensiController extends Controller
             $query->where('kelas.id', $kelasId);
         }
 
+        if ($mentorId = $request->query('mentor_id')) {
+            $query->where('kelas.mentor_id', $mentorId);
+        }
+
         if (($from = $request->query('from')) && ($to = $request->query('to'))) {
             $query->whereDate('absensi.tanggal', '>=', $from)
                 ->whereDate('absensi.tanggal', '<=', $to);
@@ -79,6 +83,7 @@ class ReportAbsensiController extends Controller
         $query = DB::table('absensi')
             ->join('jadwal', 'jadwal.id', '=', 'absensi.jadwal_id')
             ->join('siswa', 'siswa.id', '=', 'absensi.siswa_id')
+            ->join('kelas', 'kelas.id', '=', 'jadwal.kelas_id')
             ->where('jadwal.kelas_id', $kelasId)
             ->selectRaw("
                 siswa.id as siswa_id,
@@ -104,8 +109,15 @@ class ReportAbsensiController extends Controller
             ->leftJoin('mentor', 'mentor.id', '=', 'kelas.mentor_id')
             ->leftJoin('users', 'users.id', '=', 'mentor.user_id')
             ->where('kelas.id', $kelasId)
-            ->select('kelas.id', 'kelas.nama', 'kelas.tingkat', 'users.name as mentor')
-            ->first();
+            ->select('kelas.id', 'kelas.nama', 'kelas.tingkat', 'users.name as mentor');
+
+        // A kelas taught by someone else comes back as kelas: null with no rows.
+        if ($mentorId = $request->query('mentor_id')) {
+            $query->where('kelas.mentor_id', $mentorId);
+            $kelas->where('kelas.mentor_id', $mentorId);
+        }
+
+        $kelas = $kelas->first();
 
         $allowedSorts = ['siswa', 'hadir', 'sakit', 'izin', 'alpa', 'total'];
         $orderBy = in_array($request->query('order_by'), $allowedSorts, true)

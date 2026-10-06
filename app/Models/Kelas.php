@@ -62,11 +62,16 @@ class Kelas extends Model
             $mappedValue = implode("%", $mappedValueArray);
 
             // $query->whereFullText(["{$table}.name", "{$table}.long_name", "{$table}.sku"], $mappedValue, ['mode' => 'boolean', '']);
-            $query->where("{$table}.nama", $like, '%' . $mappedValue . '%')->orWhere("{$table}.tingkat", $like, '%' . $mappedValue . '%');
+            // Grouped, so the OR cannot escape the other filters (e.g. mentor_id).
+            $query->where(function ($query) use ($table, $like, $mappedValue) {
+                $query->where("{$table}.nama", $like, '%' . $mappedValue . '%')->orWhere("{$table}.tingkat", $like, '%' . $mappedValue . '%');
+            });
         })->when($filters['nama'] ?? null, function ($query, $value) use ($table, $like) {
             $query->where("{$table}.nama", $like, '%' . $value . '%');
         })->when($filters['tingkat'] ?? null, function ($query, $value) use ($table) {
             $query->where("{$table}.tingkat", $value);
+        })->when($filters['mentor_id'] ?? null, function ($query, $value) use ($table) {
+            $query->where("{$table}.mentor_id", $value);
         })->when(($filters['from'] ?? null) && ($filters['to'] ?? null), function ($query) use ($filters, $table) {
             $query->whereDate("{$table}.created_at", '>=', $filters['from'])
                 ->whereDate("{$table}.created_at", '<=', $filters['to']);
