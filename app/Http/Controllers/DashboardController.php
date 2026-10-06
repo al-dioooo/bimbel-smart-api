@@ -13,7 +13,8 @@ class DashboardController extends Controller
      * Everything the dashboard renders, in one round trip.
      *
      * Optional ?from=&to= narrows the attendance/earnings window; it defaults
-     * to the current month.
+     * to the current month. Optional ?mentor_id= limits every figure to the
+     * kelas that mentor teaches.
      */
     public function stats(Request $request)
     {
@@ -24,8 +25,18 @@ class DashboardController extends Controller
             ? Carbon::parse($request->query('to'))->endOfDay()
             : Carbon::now()->endOfMonth();
 
+        $mentorId = $request->query('mentor_id');
+        $mentorJadwal = fn ($query) => $query->whereIn(
+            'absensi.jadwal_id',
+            DB::table('jadwal')
+                ->join('kelas', 'kelas.id', '=', 'jadwal.kelas_id')
+                ->where('kelas.mentor_id', $mentorId)
+                ->select('jadwal.id')
+        );
+
         $breakdown = DB::table('absensi')
             ->whereBetween('absensi.tanggal', [$from->toDateString(), $to->toDateString()])
+            ->when($mentorId, $mentorJadwal)
             ->selectRaw("
                 SUM(CASE WHEN status = 'h' THEN 1 ELSE 0 END) as hadir,
                 SUM(CASE WHEN status = 's' THEN 1 ELSE 0 END) as sakit,
@@ -47,6 +58,7 @@ class DashboardController extends Controller
             ->leftJoin('aturan_gaji', 'aturan_gaji.kelas_id', '=', 'jadwal.kelas_id')
             ->where('absensi.status', 'h')
             ->whereBetween('absensi.tanggal', [$from->toDateString(), $to->toDateString()])
+            ->when($mentorId, $mentorJadwal)
             ->sum('aturan_gaji.tarif');
 
         return response()->json([
@@ -56,7 +68,7 @@ class DashboardController extends Controller
                     'from' => $from->toDateString(),
                     'to'   => $to->toDateString(),
                 ],
-                'total_siswa'     => Siswa::count(),
+                'total_siswa'     => Siswa::when($mentorId, fn ($query) => $query->whereRelation('kelas', 'mentor_id', $mentorId))->count(),
                 'total_kehadiran' => $hadir,
                 'penghasilan'     => $penghasilan,
                 'persentase_kehadiran' => $total > 0 ? round(($hadir / $total) * 100) : 0,

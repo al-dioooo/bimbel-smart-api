@@ -64,11 +64,14 @@ class PengajuanJadwal extends Model
         $like = Sql::like();
 
         $query->when($filters['search'] ?? null, function ($query, $value) use ($like) {
-            $query->whereHas('jadwal.kelas', function ($query) use ($value, $like) {
-                $query->where('nama', $like, '%' . $value . '%')
-                    ->orWhere('tingkat', $like, '%' . $value . '%');
-            })->orWhereHas('jadwal.kelas.mentor.user', function ($query) use ($value, $like) {
-                $query->where('name', $like, '%' . $value . '%');
+            // Grouped, so the OR cannot escape the other filters (e.g. mentor_id).
+            $query->where(function ($query) use ($value, $like) {
+                $query->whereHas('jadwal.kelas', function ($query) use ($value, $like) {
+                    $query->where('nama', $like, '%' . $value . '%')
+                        ->orWhere('tingkat', $like, '%' . $value . '%');
+                })->orWhereHas('jadwal.kelas.mentor.user', function ($query) use ($value, $like) {
+                    $query->where('name', $like, '%' . $value . '%');
+                });
             });
         })->when($filters['status'] ?? null, function ($query, $value) use ($table) {
             $query->where("{$table}.status", strtolower($value));
