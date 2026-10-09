@@ -70,7 +70,10 @@ class Siswa extends Model
 
             $mappedValue = implode("%", $mappedValueArray);
 
-            $query->where("{$table}.nama", $like, '%' . $mappedValue . '%')->orWhere("{$table}.kontak", $like, '%' . $mappedValue . '%');
+            // Grouped, so the OR cannot escape the other filters (e.g. mentor_id).
+            $query->where(function ($query) use ($table, $like, $mappedValue) {
+                $query->where("{$table}.nama", $like, '%' . $mappedValue . '%')->orWhere("{$table}.kontak", $like, '%' . $mappedValue . '%');
+            });
         })->when($filters['nama'] ?? null, function ($query, $value) use ($table, $like) {
             $query->where("{$table}.nama", $like, '%' . $value . '%');
         })->when($filters['kelas'] ?? null, function ($query, $value) use ($table, $like) {
@@ -79,6 +82,8 @@ class Siswa extends Model
             });
         })->when($filters['kelas_id'] ?? null, function ($query, $value) {
             $query->whereRelation('kelas', 'id', $value);
+        })->when($filters['mentor_id'] ?? null, function ($query, $value) {
+            $query->whereRelation('kelas', 'mentor_id', $value);
         })->when($filters['no_kelas'] ?? null, function ($query) use ($table) {
             $query->whereNull("{$table}.kelas_id");
         })->when(($filters['from'] ?? null) && ($filters['to'] ?? null), function ($query) use ($filters, $table) {

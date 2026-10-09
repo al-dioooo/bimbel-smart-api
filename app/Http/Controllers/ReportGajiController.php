@@ -90,6 +90,8 @@ class ReportGajiController extends Controller
      */
     public function show(Request $request, $mentorId)
     {
+        $this->authorizeOwner($mentorId);
+
         $query = DB::table('jadwal')
             ->join('kelas', 'kelas.id', '=', 'jadwal.kelas_id')
             ->join('mentor', 'mentor.id', '=', 'kelas.mentor_id')

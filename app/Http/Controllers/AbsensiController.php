@@ -6,15 +6,18 @@ use App\Http\Requests\StoreAbsensiRequest;
 use App\Http\Requests\UpdateAbsensiRequest;
 use App\Models\Absensi;
 use App\Models\Jadwal;
+use App\Models\Siswa;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class AbsensiController extends Controller
 {
     public function index(Request $request)
     {
         $query = Absensi::with(['jadwal.kelas', 'siswa'])
-            ->filter($request->only(['search', 'siswa_id', 'jadwal_id', 'kelas_id', 'status', 'from', 'to']));
+            ->filter($request->only(['search', 'siswa_id', 'jadwal_id', 'kelas_id', 'mentor_id', 'status', 'from', 'to']));
 
         $data = $this->paginate(
             $query,
@@ -39,11 +42,31 @@ class AbsensiController extends Controller
     public function store(StoreAbsensiRequest $request)
     {
         $validated = $request->validated();
+        $jadwal = Jadwal::with('kelas')->findOrFail($validated['jadwal_id']);
+
+        $this->authorizeOwner($jadwal->kelas?->mentor_id);
+
+        // Each `hadir` pays the kelas tarif, so mentors may not pre-fill
+        // sessions that have not happened, nor mark students of another kelas.
+        if (! $request->user()->isAdmin()) {
+            if (Carbon::parse($jadwal->tanggal)->startOfDay()->isAfter(Carbon::today())) {
+                throw ValidationException::withMessages([
+                    'jadwal_id' => 'Absensi belum bisa diisi untuk jadwal yang akan datang.',
+                ]);
+            }
+
+            $siswaIds = collect($validated['absensi'])->pluck('siswa_id')->unique();
+            $inKelas = Siswa::whereIn('id', $siswaIds)->where('kelas_id', $jadwal->kelas_id)->count();
+            if ($inKelas !== $siswaIds->count()) {
+                throw ValidationException::withMessages([
+                    'absensi' => 'Ada siswa yang tidak terdaftar di kelas ini.',
+                ]);
+            }
+        }
 
         DB::beginTransaction();
 
         try {
-            $jadwal = Jadwal::findOrFail($validated['jadwal_id']);
             $tanggal = $validated['tanggal'] ?? $jadwal->tanggal;
 
             foreach ($validated['absensi'] as $row) {
@@ -81,6 +104,8 @@ class AbsensiController extends Controller
 
     public function show(Absensi $absensi)
     {
+        $this->authorizeOwner($absensi->jadwal?->kelas?->mentor_id);
+
         $absensi->load(['jadwal.kelas', 'siswa']);
 
         return response()->json([

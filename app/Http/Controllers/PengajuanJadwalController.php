@@ -4,8 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StorePengajuanJadwalRequest;
 use App\Http\Requests\UpdatePengajuanJadwalRequest;
+use App\Models\Jadwal;
 use App\Models\PengajuanJadwal;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class PengajuanJadwalController extends Controller
@@ -29,10 +31,26 @@ class PengajuanJadwalController extends Controller
      */
     public function store(StorePengajuanJadwalRequest $request)
     {
+        $validated = $request->validated();
+        $jadwal = Jadwal::with('kelas')->findOrFail($validated['jadwal_id']);
+
+        $this->authorizeOwner($jadwal->kelas?->mentor_id);
+
+        // A mentor's request always starts pending, and "before" is whatever
+        // the jadwal actually says rather than what the client claims.
+        if (! $request->user()->isAdmin()) {
+            $validated = array_merge($validated, [
+                'status' => 'pending',
+                'tanggal_sebelum' => Carbon::parse($jadwal->tanggal)->toDateString(),
+                'waktu_mulai_sebelum' => $jadwal->waktu_mulai,
+                'waktu_selesai_sebelum' => $jadwal->waktu_selesai,
+            ]);
+        }
+
         DB::beginTransaction();
 
         try {
-            $pengajuanJadwal = PengajuanJadwal::create($request->validated());
+            $pengajuanJadwal = PengajuanJadwal::create($validated);
 
             DB::commit();
 
@@ -55,6 +73,8 @@ class PengajuanJadwalController extends Controller
      */
     public function show(PengajuanJadwal $pengajuanJadwal)
     {
+        $this->authorizeOwner($pengajuanJadwal->jadwal?->kelas?->mentor_id);
+
         return response()->json([
             'message' => 'Successfully get pengajuan jadwal data.',
             'data' => $pengajuanJadwal
@@ -90,8 +110,14 @@ class PengajuanJadwalController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(PengajuanJadwal $pengajuanJadwal)
+    public function destroy(Request $request, PengajuanJadwal $pengajuanJadwal)
     {
+        // Mentors may only cancel their own request, and only while pending.
+        if (! $request->user()->isAdmin()) {
+            $this->authorizeOwner($pengajuanJadwal->jadwal?->kelas?->mentor_id);
+            abort_unless($pengajuanJadwal->status === 'pending', 403, 'Only pending requests can be cancelled.');
+        }
+
         DB::beginTransaction();
 
         try {

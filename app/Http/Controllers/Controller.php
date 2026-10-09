@@ -27,6 +27,25 @@ abstract class Controller
         return Sql::month($column);
     }
 
+    /**
+     * 403 unless the user is an admin or the mentor who owns the record.
+     * `$mentorId` is the owning kelas's mentor_id (null when unassigned).
+     */
+    protected function authorizeOwner($mentorId): void
+    {
+        $user = auth()->user();
+
+        if ($user?->isAdmin()) {
+            return;
+        }
+
+        abort_unless(
+            $mentorId !== null && $user?->mentor && (int) $mentorId === (int) $user->mentor->id,
+            403,
+            'You do not have access to this record.'
+        );
+    }
+
     public function paginate($query, $limit = 15, $usePagination = true, $orderBy = "created_at", $direction = "desc")
     {
         if ($usePagination === 'false' || $usePagination === false)

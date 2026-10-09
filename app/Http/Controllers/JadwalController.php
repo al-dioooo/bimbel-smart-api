@@ -55,6 +55,8 @@ class JadwalController extends Controller
      */
     public function show(Jadwal $jadwal)
     {
+        $this->authorizeOwner($jadwal->kelas?->mentor_id);
+
         return response()->json([
             'message' => 'Successfully get jadwal data.',
             'data' => $jadwal
