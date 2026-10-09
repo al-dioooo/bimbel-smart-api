@@ -218,3 +218,19 @@ test('notifications belong to their recipient', function () {
     // The API serialises a real boolean, which the frontend's `is_read: boolean` expects.
     $this->getJson('/api/notification')->assertJsonPath('data.0.is_read', true);
 });
+
+test('notifications filter by read state, including unread', function () {
+    Sanctum::actingAs($this->a->user);
+    $unread = $this->a->notification;
+    $read = Notification::forceCreate(['user_id' => $this->a->user->id, 'title' => 'Seen', 'message' => 'm', 'is_read' => true]);
+
+    $ids = fn (string $query) => collect(rows($this->getJson("/api/notification$query")))->pluck('id')->sort()->values()->all();
+
+    expect($ids('?is_read=0'))->toBe([$unread->id])
+        ->and($ids('?is_read=false'))->toBe([$unread->id])
+        ->and($ids('?is_read=1'))->toBe([$read->id])
+        ->and($ids('?is_read=true'))->toBe([$read->id])
+        ->and($ids(''))->toBe([$unread->id, $read->id])
+        ->and($ids('?is_read='))->toBe([$unread->id, $read->id])
+        ->and($ids('?is_read=maybe'))->toBe([$unread->id, $read->id]);
+});
