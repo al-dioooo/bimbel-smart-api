@@ -42,10 +42,17 @@ class Notification extends Model
     {
         $table = $this->getTable();
 
+        // `when($filters['is_read'])` skipped "0"/"false" as falsy, so unread
+        // could never be asked for. Parse it instead; an absent, empty or
+        // unrecognised value means no filter.
+        $isRead = ($filters['is_read'] ?? '') === ''
+            ? null
+            : filter_var($filters['is_read'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+
         $query->when($filters['user_id'] ?? null, function ($query, $value) use ($table) {
             $query->where("{$table}.user_id", $value);
-        })->when($filters['is_read'] ?? null, function ($query, $value) use ($table) {
-            $query->where("{$table}.is_read", $value);
+        })->when($isRead !== null, function ($query) use ($table, $isRead) {
+            $query->where("{$table}.is_read", $isRead);
         });
     }
 }
