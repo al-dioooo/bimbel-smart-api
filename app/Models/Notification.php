@@ -22,6 +22,16 @@ class Notification extends Model
     ];
 
     /**
+     * Without this, PDO hands back 1/0 instead of true/false on some drivers.
+     */
+    protected function casts(): array
+    {
+        return [
+            'is_read' => 'boolean',
+        ];
+    }
+
+    /**
      * Resource filter function.
      *
      * @param  mixed  $query

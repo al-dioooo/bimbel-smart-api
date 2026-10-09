@@ -213,5 +213,8 @@ test('notifications belong to their recipient', function () {
 
     $this->patchJson("/api/notification/{$this->a->notification->id}", ['is_read' => true, 'title' => 'Rewritten'])->assertOk();
     $own = $this->a->notification->fresh();
-    expect((bool) $own->is_read)->toBeTrue()->and($own->title)->toBe('Hi a');
+    expect($own->is_read)->toBeTrue()->and($own->title)->toBe('Hi a');
+
+    // The API serialises a real boolean, which the frontend's `is_read: boolean` expects.
+    $this->getJson('/api/notification')->assertJsonPath('data.0.is_read', true);
 });
