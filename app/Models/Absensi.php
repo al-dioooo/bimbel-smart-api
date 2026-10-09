@@ -61,6 +61,8 @@ class Absensi extends Model
             $query->where("{$table}.jadwal_id", $value);
         })->when($filters['kelas_id'] ?? null, function ($query, $value) {
             $query->whereRelation('jadwal', 'kelas_id', $value);
+        })->when($filters['mentor_id'] ?? null, function ($query, $value) {
+            $query->whereRelation('jadwal.kelas', 'mentor_id', $value);
         })->when($filters['status'] ?? null, function ($query, $value) use ($table) {
             $query->where("{$table}.status", strtolower($value));
         })->when(($filters['from'] ?? null) && ($filters['to'] ?? null), function ($query) use ($filters, $table) {

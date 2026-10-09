@@ -6,6 +6,7 @@ use App\Http\Requests\StoreNotificationRequest;
 use App\Http\Requests\UpdateNotificationRequest;
 use App\Models\Notification;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 
 class NotificationController extends Controller
@@ -15,7 +16,14 @@ class NotificationController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Notification::filter($request->only(['user_id', 'is_read']));
+        $filters = $request->only(['user_id', 'is_read']);
+
+        // Mentors only ever see their own.
+        if (! $request->user()->isAdmin()) {
+            $filters['user_id'] = $request->user()->id;
+        }
+
+        $query = Notification::filter($filters);
         $data = $query->get();
 
         return response()->json([
@@ -53,8 +61,10 @@ class NotificationController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(Notification $notification)
+    public function show(Request $request, Notification $notification)
     {
+        $this->authorizeRecipient($request, $notification);
+
         return response()->json([
             'message' => 'Successfully get notification data.',
             'data' => $notification
@@ -66,10 +76,17 @@ class NotificationController extends Controller
      */
     public function update(UpdateNotificationRequest $request, Notification $notification)
     {
+        $this->authorizeRecipient($request, $notification);
+
+        // A recipient can mark it read; only admins may rewrite the content.
+        $validated = $request->user()->isAdmin()
+            ? $request->validated()
+            : Arr::only($request->validated(), ['is_read']);
+
         DB::beginTransaction();
 
         try {
-            $notification->update($request->validated());
+            $notification->update($validated);
 
             DB::commit();
 
@@ -90,8 +107,10 @@ class NotificationController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Notification $notification)
+    public function destroy(Request $request, Notification $notification)
     {
+        $this->authorizeRecipient($request, $notification);
+
         DB::beginTransaction();
 
         try {
@@ -110,5 +129,17 @@ class NotificationController extends Controller
                 'error' => $e->getMessage()
             ], 500);
         }
+    }
+
+    /** 403 unless the user is an admin or the notification's recipient. */
+    private function authorizeRecipient(Request $request, Notification $notification): void
+    {
+        $user = $request->user();
+
+        abort_unless(
+            $user->isAdmin() || (int) $notification->user_id === (int) $user->id,
+            403,
+            'You do not have access to this notification.'
+        );
     }
 }

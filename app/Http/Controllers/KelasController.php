@@ -72,6 +72,8 @@ class KelasController extends Controller
      */
     public function show(Kelas $kelas)
     {
+        $this->authorizeOwner($kelas->mentor_id);
+
         $kelas->load(['siswa']);
 
         return response()->json([
