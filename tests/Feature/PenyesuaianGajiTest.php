@@ -97,3 +97,37 @@ test('adjustments are listed, updated and deleted by the admin only', function (
     $this->deleteJson("/api/penyesuaian-gaji/$id")->assertOk();
     expect(PenyesuaianGaji::count())->toBe(0);
 });
+
+describe('no negative salary (review #35)', function () {
+    test('a potongan larger than the month\'s salary is refused', function () {
+        ($this->tambah)(['jenis' => 'potongan', 'nominal' => 60001])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['nominal' => 'Potongan melebihi gaji bulan ini (Rp 60.000)']);
+        ($this->tambah)(['jenis' => 'potongan', 'nominal' => 60000])->assertCreated();
+        ($this->tambah)(['jenis' => 'potongan', 'nominal' => 1])->assertUnprocessable();
+
+        expect(($this->rekap)()['Budi Santoso|2026-9'][4])->toBe(0.0);
+    });
+
+    test('a bonus of the same month makes room for a larger potongan', function () {
+        ($this->tambah)(['jenis' => 'bonus', 'nominal' => 15000])->assertCreated();
+        ($this->tambah)(['jenis' => 'potongan', 'nominal' => 75000])->assertCreated();
+    });
+
+    test('an update counts the potongan it replaces, not twice', function () {
+        $id = ($this->tambah)(['jenis' => 'potongan', 'nominal' => 50000])->json('data.id');
+
+        $this->putJson("/api/penyesuaian-gaji/$id", ['nominal' => 60000])->assertOk();
+        $this->putJson("/api/penyesuaian-gaji/$id", ['nominal' => 60001])->assertUnprocessable()->assertJsonValidationErrors('nominal');
+        $this->putJson("/api/penyesuaian-gaji/$id", ['bulan' => '2026-08'])->assertUnprocessable()->assertJsonValidationErrors('nominal');
+    });
+
+    test('the aturan gaji route applies the same rule', function () {
+        $this->postJson('/api/aturan-gaji', ['jenis' => 'potongan', 'mentor_id' => $this->f->mSari->id, 'bulan' => '2026-09', 'nominal' => 40001])
+            ->assertUnprocessable()->assertJsonValidationErrors('nominal');
+    });
+
+    test('a nominal with more than two decimals is refused', function () {
+        ($this->tambah)(['jenis' => 'bonus', 'nominal' => 1000.505])->assertUnprocessable()->assertJsonValidationErrors(['nominal' => 'dua angka']);
+    });
+});
