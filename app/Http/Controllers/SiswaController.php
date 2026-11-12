@@ -117,6 +117,11 @@ class SiswaController extends Controller
         } catch (\Throwable $e) {
             DB::rollBack();
 
+            // A row inserted after the check above: the foreign key refuses it.
+            if ($this->isForeignKeyViolation($e)) {
+                throw ValidationException::withMessages(['siswa' => 'Siswa tidak dapat dihapus karena sudah memiliki catatan absensi.']);
+            }
+
             return response()->json([
                 'message' => 'Failed to delete siswa data.',
                 'error' => $e->getMessage(),
