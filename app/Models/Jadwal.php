@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Support\Sql;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
@@ -39,6 +40,28 @@ class Jadwal extends Model
     public function absensi()
     {
         return $this->hasMany(Absensi::class);
+    }
+
+    /**
+     * Sessions whose attendance is missing or incomplete, one rule for the
+     * mentor's reminders (REQ-071) and the finalize warning (UC-10 3a).
+     * Empty: no record yet while the kelas has students. Incomplete: some
+     * records, but a student of the kelas who had joined by the session date
+     * has none (the students the absensi form still accepts on a partly
+     * filled session).
+     */
+    public function scopeAbsensiBelumLengkap(Builder $query): Builder
+    {
+        return $query->where(fn ($q) => $q
+            ->where(fn ($kosong) => $kosong->doesntHave('absensi')->whereHas('kelas.siswa'))
+            ->orWhere(fn ($sebagian) => $sebagian->has('absensi')->whereExists(fn ($siswa) => $siswa
+                ->selectRaw('1')->from('siswa')
+                ->whereColumn('siswa.kelas_id', 'jadwal.kelas_id')
+                ->whereRaw('DATE(siswa.tanggal_bergabung) <= DATE(jadwal.tanggal)')
+                ->whereNotExists(fn ($absensi) => $absensi
+                    ->selectRaw('1')->from('absensi')
+                    ->whereColumn('absensi.jadwal_id', 'jadwal.id')
+                    ->whereColumn('absensi.siswa_id', 'siswa.id')))));
     }
 
     /**

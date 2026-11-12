@@ -1,6 +1,8 @@
 <?php
 
 use App\Models\Absensi;
+use App\Models\AturanGaji;
+use App\Models\Kelas;
 use App\Models\Notification;
 use App\Models\PenyesuaianGaji;
 use App\Models\PeriodeGaji;
@@ -136,6 +138,46 @@ test('sessions without absensi need an explicit confirmation (UC-10 3a)', functi
     expect(PeriodeGaji::count())->toBe(0);
 
     ($this->finalize)(['lanjutkan' => true])->assertCreated();
+});
+
+test('an incomplete session needs the confirmation too, by the reminders\' rule (round 2 review)', function () {
+    // Andi and Bela joined in January; on 14 September only Andi is recorded.
+    $this->f->k7a->siswa()->update(['tanggal_bergabung' => '2026-01-05 09:00:00']);
+    $this->f->jadwal($this->f->k7a, '2026-09-14', ['Andi' => 'h']);
+
+    expect($this->getJson('/api/report/gaji/periode/2026-09')->json('data.jadwal_belum_diabsen'))->toBe(1);
+    ($this->finalize)()->assertUnprocessable()->assertJsonValidationErrors(['lanjutkan' => 'Terdapat 1 sesi absensi yang belum terisi']);
+
+    // A student who joined after the session does not make it incomplete.
+    $this->f->siswa['Bela']->update(['tanggal_bergabung' => '2026-09-20 09:00:00']);
+    expect($this->getJson('/api/report/gaji/periode/2026-09')->json('data.jadwal_belum_diabsen'))->toBe(0);
+    ($this->finalize)()->assertCreated();
+});
+
+test('the gaji detail totals read a finalized month as stored', function () {
+    ($this->finalize)()->assertCreated();
+    $this->putJson("/api/kelas/{$this->f->k7a->id}", ['mentor_id' => $this->f->mSari->id])->assertOk();
+
+    $this->getJson("/api/report/gaji/{$this->f->mBudi->id}?bulan=2026-09")
+        ->assertJsonPath('total.total', fn ($v) => (float) $v === 110000.0)
+        ->assertJsonPath('total.bonus', fn ($v) => (float) $v === 50000.0);
+});
+
+test('the tarif of an aturan whose kelas was deleted can still be edited (round 2 review)', function () {
+    $kelas = Kelas::create(['nama' => 'Kimia 9C', 'tingkat' => 'SMP', 'mentor_id' => $this->f->mSari->id]);
+    $aturan = AturanGaji::create(['kelas_id' => $kelas->id, 'tarif' => 45000]);
+    $this->deleteJson("/api/kelas/{$kelas->id}")->assertOk();
+    expect($aturan->fresh()->kelas_id)->toBeNull();
+
+    $this->putJson("/api/aturan-gaji/{$aturan->id}", ['tarif' => 50000])
+        ->assertOk()
+        ->assertJsonPath('bulan_terdampak', []);
+    expect($aturan->fresh()->tarif)->toBe(50000.0);
+
+    // Given a kelas again, the response lists that kelas's open months.
+    $this->putJson("/api/aturan-gaji/{$aturan->id}", ['kelas_id' => $this->f->k7b->id])->assertUnprocessable(); // K-7B has an aturan
+    $baru = Kelas::create(['nama' => 'Kimia 9D', 'tingkat' => 'SMP', 'mentor_id' => $this->f->mSari->id]);
+    $this->putJson("/api/aturan-gaji/{$aturan->id}", ['kelas_id' => $baru->id])->assertOk()->assertJsonPath('bulan_terdampak', []);
 });
 
 test('only admins preview and finalize', function () {
