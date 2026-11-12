@@ -2,6 +2,7 @@
 
 use App\Models\AturanGaji;
 use App\Models\Kelas;
+use App\Models\Mentor;
 use App\Models\User;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -122,5 +123,104 @@ describe('mentor phone number (D20)', function () {
         ])->assertUnprocessable()->assertJsonValidationErrors('kontak');
 
         expect($this->f->mSari->fresh()->kontak)->toBe('081298765432');
+    });
+});
+
+describe('database-level uniqueness for kelas and kontak (review #22)', function () {
+    $migration = fn () => require database_path('migrations/2026_11_12_000101_add_unique_kelas_and_kontak_indexes.php');
+
+    test('the database refuses a duplicate kelas, whatever the case or spacing', function () {
+        expect(fn () => DB::table('kelas')->insert(['nama' => ' matematika 7a', 'tingkat' => 'smp ']))
+            ->toThrow(QueryException::class);
+    });
+
+    test('the database refuses a duplicate kontak but allows many mentors without one', function () {
+        // In a savepoint, so PostgreSQL can go on after the refused insert.
+        expect(fn () => DB::transaction(fn () => DB::table('mentor')->insert(['user_id' => $this->f->admin->id, 'kontak' => '081234567890'])))
+            ->toThrow(QueryException::class);
+
+        $none = DB::table('mentor')->whereNull('kontak')->count();
+        DB::table('mentor')->whereIn('id', [$this->f->mBudi->id, $this->f->mSari->id])->update(['kontak' => null]);
+        expect(DB::table('mentor')->whereNull('kontak')->count())->toBe($none + 2);
+    });
+
+    test('a kelas created by a parallel request answers 422, not 500', function () {
+        // The parallel request inserts the same kelas after validation passed.
+        Kelas::creating(fn () => DB::table('kelas')->insert(['nama' => 'Kimia 9C', 'tingkat' => 'SMP']));
+
+        $this->postJson('/api/kelas', ['nama' => 'Kimia 9C', 'tingkat' => 'SMP', 'mentor_id' => $this->f->mSari->id])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['nama' => 'sudah terdaftar'])
+            ->assertJsonMissingPath('error');
+    });
+
+    test('a kontak taken by a parallel request answers 422, not 500', function () {
+        Mentor::creating(fn () => DB::table('mentor')->insert(['user_id' => $this->f->admin->id, 'kontak' => '081200000001']));
+
+        $this->postJson('/api/mentor', [
+            'name' => 'Dewi Lestari', 'username' => 'dewi', 'email' => 'dewi@uji.test', 'password' => 'rahasia-uji8', 'kontak' => '081200000001',
+        ])->assertUnprocessable()->assertJsonValidationErrors(['kontak' => 'sudah dipakai mentor lain']);
+
+        expect(User::where('username', 'dewi')->exists())->toBeFalse();
+    });
+
+    test('an aturan created by a parallel request answers 422, not 500', function () {
+        $kelas = Kelas::create(['nama' => 'Kimia 9C', 'tingkat' => 'SMP', 'mentor_id' => $this->f->mSari->id]);
+        AturanGaji::creating(fn () => DB::table('aturan_gaji')->insert(['kelas_id' => $kelas->id, 'tarif' => 1]));
+
+        $this->postJson('/api/aturan-gaji', ['kelas_id' => $kelas->id, 'tarif' => 45000])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['kelas_id' => 'sudah memiliki aturan gaji']);
+    });
+
+    test('the migration lists duplicate kelas and kontak instead of changing them', function () use ($migration) {
+        $m = $migration();
+        $m->down();
+        $kelas = DB::table('kelas')->insertGetId(['nama' => 'matematika 7a ', 'tingkat' => 'SMP']);
+        $mentor = DB::table('mentor')->insertGetId(['user_id' => $this->f->admin->id, 'kontak' => '081234567890']);
+
+        expect(fn () => $m->up())->toThrow(RuntimeException::class, "id {$this->f->k7a->id} (\"Matematika 7A\" SMP), id {$kelas} (\"matematika 7a \" SMP)");
+        expect(fn () => $m->up())->toThrow(RuntimeException::class, "mentor kontak 081234567890: mentor id {$this->f->mBudi->id}, {$mentor}");
+        expect(DB::table('kelas')->where('id', $kelas)->exists())->toBeTrue()
+            ->and(DB::table('mentor')->where('id', $mentor)->value('kontak'))->toBe('081234567890');
+
+        DB::table('kelas')->delete($kelas);
+        DB::table('mentor')->delete($mentor);
+        $m->up();
+        expect(fn () => DB::table('kelas')->insert(['nama' => 'MATEMATIKA 7A', 'tingkat' => 'SMP']))->toThrow(QueryException::class);
+    });
+
+    test('the migration turns an empty kontak into none so several can exist', function () use ($migration) {
+        $m = $migration();
+        $m->down();
+        DB::table('mentor')->whereIn('id', [$this->f->mBudi->id, $this->f->mSari->id])->update(['kontak' => '']);
+
+        $m->up();
+
+        expect(DB::table('mentor')->whereIn('id', [$this->f->mBudi->id, $this->f->mSari->id])->pluck('kontak')->all())->toBe([null, null]);
+    });
+
+    test('an update that leaves nama and tingkat as they are is not checked', function () use ($migration) {
+        // A duplicate that predates the rule (index dropped to recreate one).
+        $m = $migration();
+        $m->down();
+        $dup = Kelas::create(['nama' => 'matematika 7a', 'tingkat' => 'SMP', 'mentor_id' => $this->f->mBudi->id]);
+
+        $this->putJson("/api/kelas/{$dup->id}", ['nama' => 'matematika 7a', 'tingkat' => 'SMP', 'mentor_id' => $this->f->mSari->id])->assertOk();
+        $this->putJson("/api/kelas/{$dup->id}", ['mentor_id' => $this->f->mBudi->id])->assertOk();
+        $this->putJson("/api/kelas/{$dup->id}", ['nama' => 'Matematika 7A'])->assertOk();
+        $this->putJson("/api/kelas/{$this->f->k7b->id}", ['nama' => 'Matematika 7A'])
+            ->assertUnprocessable()->assertJsonValidationErrors(['nama' => 'sudah terdaftar']);
+    });
+
+    test('a full-form mentor update that resends an unchanged kontak is not checked', function () use ($migration) {
+        $m = $migration();
+        $m->down();
+        DB::table('mentor')->where('id', $this->f->mSari->id)->update(['kontak' => '081234567890']);
+
+        $this->putJson("/api/mentor/{$this->f->mSari->id}", [
+            'name' => 'Sari Dewi Baru', 'username' => 'sari', 'email' => 'sari@uji.test', 'kontak' => '081234567890',
+        ])->assertOk();
+        expect($this->f->mSari->fresh()->user->name)->toBe('Sari Dewi Baru');
     });
 });

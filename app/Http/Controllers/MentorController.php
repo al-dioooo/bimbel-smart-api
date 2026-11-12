@@ -8,6 +8,7 @@ use App\Models\Kelas;
 use App\Models\Mentor;
 use App\Models\Notification;
 use App\Models\User;
+use App\Support\UniqueViolation;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
@@ -64,6 +65,7 @@ class MentorController extends Controller
             ], 201);
         } catch (\Throwable $e) {
             DB::rollBack();
+            UniqueViolation::rethrow($e);
 
             return response()->json([
                 'message' => 'Failed to store mentor data.',
@@ -120,6 +122,7 @@ class MentorController extends Controller
             ], 200);
         } catch (\Throwable $e) {
             DB::rollBack();
+            UniqueViolation::rethrow($e);
 
             return response()->json([
                 'message' => 'Failed to update mentor data.',
@@ -139,6 +142,13 @@ class MentorController extends Controller
         if ($kelas->isNotEmpty()) {
             throw ValidationException::withMessages([
                 'mentor' => 'Mentor tidak dapat dihapus karena masih mengampu kelas: '.$kelas->implode(', ').'. Pindahkan kelas tersebut ke mentor lain terlebih dahulu.',
+            ]);
+        }
+
+        // A finalized slip (report_gaji) must stay reachable from its mentor.
+        if (DB::table('report_gaji')->where('mentor_id', $mentor->id)->exists()) {
+            throw ValidationException::withMessages([
+                'mentor' => 'Mentor tidak dapat dihapus karena sudah memiliki catatan gaji yang difinalisasi.',
             ]);
         }
 
@@ -166,6 +176,11 @@ class MentorController extends Controller
             ], 200);
         } catch (\Throwable $e) {
             DB::rollBack();
+
+            // A row inserted after the check above: the foreign key refuses it.
+            if ($this->isForeignKeyViolation($e)) {
+                throw ValidationException::withMessages(['mentor' => 'Mentor tidak dapat dihapus karena masih mengampu kelas atau memiliki catatan gaji.']);
+            }
 
             return response()->json([
                 'message' => 'Failed to delete mentor data.',

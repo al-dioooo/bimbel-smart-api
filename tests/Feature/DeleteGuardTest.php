@@ -6,7 +6,9 @@ use App\Models\Jadwal;
 use App\Models\Kelas;
 use App\Models\Mentor;
 use App\Models\Siswa;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
 use Tests\Support\BimbelFixture;
 
@@ -105,4 +107,59 @@ test('a siswa without absensi can be deleted', function () {
     $this->deleteJson("/api/siswa/{$this->f->siswa['Gita']->id}")->assertOk();
 
     expect(Siswa::find($this->f->siswa['Gita']->id))->toBeNull();
+});
+
+describe('database-level guards (review of #21)', function () {
+    test('the database itself refuses deleting referenced rows', function (string $what) {
+        $f = $this->f;
+        $delete = match ($what) {
+            'jadwal with absensi' => fn () => DB::table('jadwal')->where('id', $f->jIsi->id)->delete(),
+            'siswa with absensi' => fn () => DB::table('siswa')->where('id', $f->siswa['Andi']->id)->delete(),
+            'kelas with jadwal' => fn () => DB::table('kelas')->where('id', $f->k7a->id)->delete(),
+            'mentor with kelas' => fn () => DB::table('mentor')->where('id', $f->mBudi->id)->delete(),
+        };
+
+        expect($delete)->toThrow(QueryException::class);
+    })->with(['jadwal with absensi', 'siswa with absensi', 'kelas with jadwal', 'mentor with kelas']);
+
+    test('the foreign keys go back to nullOnDelete on rollback and forward again', function () {
+        $migration = require database_path('migrations/2026_11_12_000100_restrict_deleting_referenced_rows.php');
+        $migration->down();
+        DB::table('jadwal')->where('id', $this->f->jDepan->id)->delete();
+        $migration->up();
+
+        expect(fn () => DB::table('jadwal')->where('id', $this->f->jIsi->id)->delete())->toThrow(QueryException::class);
+    })->skip(fn () => DB::connection()->getDriverName() === 'sqlite', 'SQLite rebuilds the table inside the test transaction, where foreign keys cannot be re-enabled; run on PostgreSQL');
+});
+
+describe('updates cannot bypass the guards (review of #21)', function () {
+    test('an aturan gaji whose kelas has kehadiran cannot move to another kelas', function () {
+        $kosong = Kelas::create(['nama' => 'Kimia 9C', 'tingkat' => 'SMP', 'mentor_id' => $this->f->mSari->id]);
+
+        $this->putJson("/api/aturan-gaji/{$this->f->aturan7a->id}", ['kelas_id' => $kosong->id])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['kelas_id' => 'sudah memiliki kehadiran']);
+        $this->putJson("/api/aturan-gaji/{$this->f->aturan7b->id}", ['kelas_id' => $kosong->id])->assertOk();
+
+        expect($this->f->aturan7a->fresh()->kelas_id)->toBe($this->f->k7a->id);
+    });
+
+    test('a jadwal with absensi cannot move to another kelas, an empty one can', function () {
+        $this->putJson("/api/jadwal/{$this->f->jIsi->id}", ['kelas_id' => $this->f->k7b->id])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['kelas_id' => 'sudah memiliki catatan absensi']);
+        $this->putJson("/api/jadwal/{$this->f->jDepan->id}", ['kelas_id' => $this->f->k7b->id])->assertOk();
+
+        expect($this->f->jIsi->fresh()->kelas_id)->toBe($this->f->k7a->id);
+    });
+
+    test('a mentor with a finalized salary record cannot be deleted', function () {
+        DB::table('report_gaji')->insert(['mentor_id' => $this->f->mRina->id, 'bulan' => '2026-09-01', 'jumlah_kehadiran' => 0, 'total_gaji' => 0]);
+
+        $this->deleteJson("/api/mentor/{$this->f->mRina->id}")
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['mentor' => 'catatan gaji yang difinalisasi']);
+
+        expect(Mentor::find($this->f->mRina->id))->not->toBeNull();
+    });
 });
