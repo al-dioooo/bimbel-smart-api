@@ -32,7 +32,7 @@ class StorePengajuanJadwalRequest extends FormRequest
             'waktu_selesai_sebelum' => ['required', 'date_format:H:i:s'],
             'waktu_selesai_sesudah' => ['required', 'date_format:H:i:s'],
 
-            'alasan' => ['nullable', 'string'],
+            'alasan' => ['nullable', 'string', 'max:255'],
 
             'status' => ['nullable', 'in:pending,diterima,ditolak'],
         ];

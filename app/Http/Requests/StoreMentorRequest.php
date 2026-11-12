@@ -32,7 +32,7 @@ class StoreMentorRequest extends FormRequest
             // Mentor fields
             // REQ-022: "nomor telepon unik".
             'kontak' => 'nullable|string|max:100|unique:mentor,kontak',
-            'tempat_tanggal_lahir' => 'nullable|string',
+            'tempat_tanggal_lahir' => 'nullable|string|max:255',
             'nik' => 'nullable|string|max:16',
             'npwp' => 'nullable|string|max:25',
             'alamat' => 'nullable|string',

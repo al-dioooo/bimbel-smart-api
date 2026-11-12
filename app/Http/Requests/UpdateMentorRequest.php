@@ -37,7 +37,7 @@ class UpdateMentorRequest extends FormRequest
                 'sometimes', 'nullable', 'string', 'max:100',
                 $this->input('kontak') !== $this->mentor->kontak ? 'unique:mentor,kontak,'.$this->mentor->id : null,
             ]),
-            'tempat_tanggal_lahir' => 'sometimes|nullable|string',
+            'tempat_tanggal_lahir' => 'sometimes|nullable|string|max:255',
             'nik' => 'sometimes|nullable|string|max:16',
             'npwp' => 'sometimes|nullable|string|max:25',
             'alamat' => 'sometimes|nullable|string',
