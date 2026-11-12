@@ -60,8 +60,9 @@ class PeriodeGaji extends Model
      * 422 when the date falls in a finalized month.
      *
      * @param  string  $what  what cannot change, e.g. "absensi ini"
+     * @param  string  $tidakDapat  e.g. "tidak dapat ditambahkan pada periode tersebut"
      */
-    public static function ensureOpen(Carbon|string|null $date, string $field, string $what): void
+    public static function ensureOpen(Carbon|string|null $date, string $field, string $what, string $tidakDapat = 'tidak dapat diubah'): void
     {
         // Inside the writer's transaction this waits for a finalization of
         // the month in progress, and holds it off until the write commits.
@@ -71,7 +72,7 @@ class PeriodeGaji extends Model
 
         if ($periode = static::finalFor($date)) {
             throw ValidationException::withMessages([
-                $field => "Periode gaji {$periode->label()} sudah difinalisasi, sehingga {$what} tidak dapat diubah.",
+                $field => "Periode gaji {$periode->label()} sudah difinalisasi, sehingga {$what} {$tidakDapat}.",
             ]);
         }
     }

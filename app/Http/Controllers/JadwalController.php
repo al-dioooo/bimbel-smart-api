@@ -6,6 +6,7 @@ use App\Http\Requests\StoreJadwalRequest;
 use App\Http\Requests\UpdateJadwalRequest;
 use App\Models\Absensi;
 use App\Models\Jadwal;
+use App\Models\PeriodeGaji;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -35,6 +36,9 @@ class JadwalController extends Controller
         DB::beginTransaction();
 
         try {
+            // UC-10 step 9: a finalized month gets no new sessions.
+            PeriodeGaji::ensureOpen($request->validated('tanggal'), 'tanggal', 'jadwal', 'tidak dapat ditambahkan pada periode tersebut');
+
             $jadwal = Jadwal::create($request->validated());
 
             DB::commit();
@@ -45,6 +49,9 @@ class JadwalController extends Controller
             ], 201);
         } catch (\Throwable $e) {
             DB::rollBack();
+            if ($e instanceof ValidationException) {
+                throw $e;
+            }
 
             return response()->json([
                 'message' => 'Failed to store jadwal data.',
@@ -71,6 +78,12 @@ class JadwalController extends Controller
      */
     public function update(UpdateJadwalRequest $request, Jadwal $jadwal)
     {
+        // UC-10 step 9: neither a session of a finalized month nor a move into one.
+        PeriodeGaji::ensureOpen($jadwal->tanggal, 'jadwal', 'jadwal ini');
+        if ($request->filled('tanggal')) {
+            PeriodeGaji::ensureOpen($request->input('tanggal'), 'tanggal', 'jadwal pada periode tersebut');
+        }
+
         // Moving a recorded session to another kelas would move its salary
         // and free the old kelas for deletion (REQ-029).
         if ($request->has('kelas_id') && (int) $request->input('kelas_id') !== (int) $jadwal->kelas_id
@@ -83,6 +96,12 @@ class JadwalController extends Controller
         DB::beginTransaction();
 
         try {
+            // Again inside the transaction, where it holds the month's lock until commit.
+            PeriodeGaji::ensureOpen($jadwal->tanggal, 'jadwal', 'jadwal ini');
+            if ($request->filled('tanggal')) {
+                PeriodeGaji::ensureOpen($request->input('tanggal'), 'tanggal', 'jadwal pada periode tersebut');
+            }
+
             $jadwal->update($request->validated());
 
             // REQ-045: attendance carries its jadwal's date.
@@ -99,6 +118,9 @@ class JadwalController extends Controller
             ], 200);
         } catch (\Throwable $e) {
             DB::rollBack();
+            if ($e instanceof ValidationException) {
+                throw $e;
+            }
 
             return response()->json([
                 'message' => 'Failed to update jadwal data.',
@@ -112,6 +134,8 @@ class JadwalController extends Controller
      */
     public function destroy(Jadwal $jadwal)
     {
+        PeriodeGaji::ensureOpen($jadwal->tanggal, 'jadwal', 'jadwal ini');
+
         // REQ-040: attendance hangs off the jadwal and feeds the salary report.
         if (Absensi::where('jadwal_id', $jadwal->id)->exists()) {
             throw ValidationException::withMessages([
@@ -122,6 +146,9 @@ class JadwalController extends Controller
         DB::beginTransaction();
 
         try {
+            // Again inside the transaction, where it holds the month's lock until commit.
+            PeriodeGaji::ensureOpen($jadwal->tanggal, 'jadwal', 'jadwal ini');
+
             $jadwal->delete();
 
             DB::commit();
@@ -131,6 +158,9 @@ class JadwalController extends Controller
             ], 200);
         } catch (\Throwable $e) {
             DB::rollBack();
+            if ($e instanceof ValidationException) {
+                throw $e;
+            }
 
             // A row inserted after the check above: the foreign key refuses it.
             if ($this->isForeignKeyViolation($e)) {

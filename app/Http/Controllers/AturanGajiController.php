@@ -7,6 +7,7 @@ use App\Http\Requests\UpdateAturanGajiRequest;
 use App\Models\Absensi;
 use App\Models\AturanGaji;
 use App\Models\Kelas;
+use App\Support\Sql;
 use App\Support\UniqueViolation;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -96,11 +97,16 @@ class AturanGajiController extends Controller
         try {
             $aturanGaji->update($request->validated());
 
+            // Finalized months keep their stored amounts (report_gaji); the
+            // open months with kehadiran in this kelas are repriced.
+            $bulanTerdampak = $aturanGaji->wasChanged(['tarif', 'kelas_id']) ? self::bulanTerbuka($aturanGaji->kelas_id) : [];
+
             DB::commit();
 
             return response()->json([
                 'message' => 'Successfully update aturan gaji data.',
                 'data' => $aturanGaji,
+                'bulan_terdampak' => $bulanTerdampak,
             ], 200);
         } catch (\Throwable $e) {
             DB::rollBack();
@@ -150,6 +156,35 @@ class AturanGajiController extends Controller
                 'error' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Months (YYYY-MM) not yet finalized in which the kelas has `hadir`, i.e.
+     * the salaries a tarif change recomputes. None for an aturan whose kelas
+     * was deleted (aturan_gaji.kelas_id is set to NULL then).
+     *
+     * @return array<int, string>
+     */
+    private static function bulanTerbuka(?int $kelasId): array
+    {
+        if ($kelasId === null) {
+            return [];
+        }
+
+        return DB::table('absensi')
+            ->join('jadwal', 'jadwal.id', '=', 'absensi.jadwal_id')
+            ->where('jadwal.kelas_id', $kelasId)
+            ->where('absensi.status', 'h')
+            ->whereNotExists(fn ($final) => $final->selectRaw('1')->from('periode_gaji')
+                ->whereRaw(Sql::year('periode_gaji.periode').' = '.Sql::year('jadwal.tanggal'))
+                ->whereRaw(Sql::month('periode_gaji.periode').' = '.Sql::month('jadwal.tanggal')))
+            ->selectRaw(Sql::year('jadwal.tanggal').' as tahun, '.Sql::month('jadwal.tanggal').' as bulan')
+            ->distinct()
+            ->get()
+            ->map(fn ($row) => sprintf('%04d-%02d', $row->tahun, $row->bulan))
+            ->sort()
+            ->values()
+            ->all();
     }
 
     /** Whether the kelas has `hadir` attendance; optionally locking the kelas row first. */

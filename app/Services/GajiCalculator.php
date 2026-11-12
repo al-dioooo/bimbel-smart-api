@@ -26,9 +26,9 @@ use Illuminate\Support\Facades\DB;
  *
  * A finalized month (UC-10 step 9) is never recomputed: it is read from the
  * report_gaji snapshot, so later changes such as moving a kelas to another
- * mentor cannot rewrite a closed payroll. A month is swapped for its snapshot
- * when the filters cover the whole month; a from/to range that cuts through a
- * finalized month shows the live figures for the days it covers.
+ * mentor or a new tarif cannot rewrite a closed payroll. Every finalized month
+ * the filters touch is swapped for its whole stored month, also when a
+ * from/to range only cuts through it (as adjustments already count per month).
  *
  * Filters, all optional: mentor_id, search (mentor name), bulan (YYYY-MM),
  * from and to (Y-m-d, together).
@@ -215,7 +215,7 @@ class GajiCalculator
     }
 
     /**
-     * Finalized months fully covered by the filters, as first-day dates.
+     * Finalized months the filters touch, as first-day dates.
      *
      * @return array<int, string>
      */
@@ -229,7 +229,7 @@ class GajiCalculator
             ->pluck('periode')
             ->map(fn ($periode) => Carbon::parse($periode)->toDateString())
             ->filter(fn (string $periode) => ! ($from && $to)
-                || ($periode >= $from && Carbon::parse($periode)->endOfMonth()->toDateString() <= $to))
+                || ($periode <= $to && Carbon::parse($periode)->endOfMonth()->toDateString() >= $from))
             ->values()
             ->all();
     }
