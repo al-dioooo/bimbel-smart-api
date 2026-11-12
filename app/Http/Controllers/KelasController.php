@@ -145,6 +145,11 @@ class KelasController extends Controller
         } catch (\Throwable $e) {
             DB::rollBack();
 
+            // A row inserted after the check above: the foreign key refuses it.
+            if ($this->isForeignKeyViolation($e)) {
+                throw ValidationException::withMessages(['kelas' => 'Kelas tidak dapat dihapus karena masih memiliki jadwal atau absensi.']);
+            }
+
             return response()->json([
                 'message' => 'Failed to delete kelas data.',
                 'error' => $e->getMessage(),

@@ -147,6 +147,13 @@ class MentorController extends Controller
             ]);
         }
 
+        // A finalized slip (report_gaji) must stay reachable from its mentor.
+        if (DB::table('report_gaji')->where('mentor_id', $mentor->id)->exists()) {
+            throw ValidationException::withMessages([
+                'mentor' => 'Mentor tidak dapat dihapus karena sudah memiliki catatan gaji yang difinalisasi.',
+            ]);
+        }
+
         DB::beginTransaction();
 
         try {
@@ -171,6 +178,11 @@ class MentorController extends Controller
             ], 200);
         } catch (\Throwable $e) {
             DB::rollBack();
+
+            // A row inserted after the check above: the foreign key refuses it.
+            if ($this->isForeignKeyViolation($e)) {
+                throw ValidationException::withMessages(['mentor' => 'Mentor tidak dapat dihapus karena masih mengampu kelas atau memiliki catatan gaji.']);
+            }
 
             return response()->json([
                 'message' => 'Failed to delete mentor data.',
