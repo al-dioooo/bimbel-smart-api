@@ -10,6 +10,7 @@ use App\Models\Notification;
 use App\Models\User;
 use App\Support\UniqueViolation;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
@@ -94,30 +95,24 @@ class MentorController extends Controller
         DB::beginTransaction();
 
         try {
-            $user = $mentor->user;
+            // REQ-024: change only what was sent. `input()` turned every absent
+            // field into null, which broke NOT NULL account columns (500) and
+            // silently wiped the profile (D15, G9, G10).
+            $validated = $request->validated();
 
-            // Bangun payload user tanpa password dulu
-            $userData = [
-                'name' => $request->input('name'),
-                'email' => $request->input('email'),
-                'username' => $request->input('username'),
-            ];
-
-            // Hanya update password jika diisi
+            $userData = Arr::only($validated, ['name', 'email', 'username']);
             if ($request->filled('password')) {
                 $userData['password'] = Hash::make($request->input('password'));
             }
 
-            $user->update($userData);
+            if ($userData !== []) {
+                $mentor->user->update($userData);
+            }
 
-            // Update Mentor profile
-            $mentor->update([
-                'kontak' => $request->input('kontak'),
-                'tempat_tanggal_lahir' => $request->input('tempat_tanggal_lahir'),
-                'nik' => $request->input('nik'),
-                'npwp' => $request->input('npwp'),
-                'alamat' => $request->input('alamat'),
-            ]);
+            $profile = Arr::only($validated, ['kontak', 'tempat_tanggal_lahir', 'nik', 'npwp', 'alamat']);
+            if ($profile !== []) {
+                $mentor->update($profile);
+            }
 
             DB::commit();
 
