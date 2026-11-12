@@ -5,7 +5,6 @@ namespace Database\Seeders;
 use App\Models\Jadwal;
 use App\Models\Kelas;
 use Carbon\Carbon;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class JadwalSeeder extends Seeder
@@ -28,7 +27,7 @@ class JadwalSeeder extends Seeder
 
                     'materi' => fake()->sentence(),
                     'created_at' => Carbon::now(),
-                    'updated_at' => Carbon::now()
+                    'updated_at' => Carbon::now(),
                 ],
                 [
                     'kelas_id' => $row->id,
@@ -39,7 +38,7 @@ class JadwalSeeder extends Seeder
 
                     'materi' => fake()->sentence(),
                     'created_at' => Carbon::now(),
-                    'updated_at' => Carbon::now()
+                    'updated_at' => Carbon::now(),
                 ],
                 [
                     'kelas_id' => $row->id,
@@ -50,7 +49,7 @@ class JadwalSeeder extends Seeder
 
                     'materi' => fake()->sentence(),
                     'created_at' => Carbon::now(),
-                    'updated_at' => Carbon::now()
+                    'updated_at' => Carbon::now(),
                 ],
                 [
                     'kelas_id' => $row->id,
@@ -61,7 +60,7 @@ class JadwalSeeder extends Seeder
 
                     'materi' => fake()->sentence(),
                     'created_at' => Carbon::now(),
-                    'updated_at' => Carbon::now()
+                    'updated_at' => Carbon::now(),
                 ],
                 [
                     'kelas_id' => $row->id,
@@ -72,7 +71,7 @@ class JadwalSeeder extends Seeder
 
                     'materi' => fake()->sentence(),
                     'created_at' => Carbon::now(),
-                    'updated_at' => Carbon::now()
+                    'updated_at' => Carbon::now(),
                 ],
                 [
                     'kelas_id' => $row->id,
@@ -83,8 +82,8 @@ class JadwalSeeder extends Seeder
 
                     'materi' => fake()->sentence(),
                     'created_at' => Carbon::now(),
-                    'updated_at' => Carbon::now()
-                ]
+                    'updated_at' => Carbon::now(),
+                ],
             ]);
         }
     }

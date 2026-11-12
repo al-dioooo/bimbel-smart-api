@@ -26,7 +26,7 @@ class Mentor extends Model
         'kontak',
         'nik',
         'npwp',
-        'alamat'
+        'alamat',
     ];
 
     public function user()
@@ -38,7 +38,6 @@ class Mentor extends Model
      * Resource filter function.
      *
      * @param  mixed  $query
-     * @param  array  $filters
      * @return mixed $query
      */
     public function scopeFilter($query, array $filters)
@@ -56,13 +55,13 @@ class Mentor extends Model
                 array_push($mappedValueArray, $row);
             }
 
-            $mappedValue = implode("%", $mappedValueArray);
+            $mappedValue = implode('%', $mappedValueArray);
 
-            $query->where("{$table}.kontak", $like, '%' . $mappedValue . '%')->orWhereRelation('user', 'name', $like, '%' . $value . '%');
-        })->when($filters['nama'] ?? null, function ($query, $value) use ($table, $like) {
-            $query->whereRelation('user', 'name', $like, '%' . $value . '%');
+            $query->where("{$table}.kontak", $like, '%'.$mappedValue.'%')->orWhereRelation('user', 'name', $like, '%'.$value.'%');
+        })->when($filters['nama'] ?? null, function ($query, $value) use ($like) {
+            $query->whereRelation('user', 'name', $like, '%'.$value.'%');
         })->when($filters['kontak'] ?? null, function ($query, $value) use ($table, $like) {
-            $query->where("{$table}.kontak", $like, '%' . $value . '%');
+            $query->where("{$table}.kontak", $like, '%'.$value.'%');
         })->when(($filters['from'] ?? null) && ($filters['to'] ?? null), function ($query) use ($filters, $table) {
             $query->whereDate("{$table}.created_at", '>=', $filters['from'])
                 ->whereDate("{$table}.created_at", '<=', $filters['to']);

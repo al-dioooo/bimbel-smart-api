@@ -32,11 +32,11 @@ class AbsensiSeeder extends Seeder
                     Absensi::updateOrCreate(
                         [
                             'jadwal_id' => $jadwal->id,
-                            'siswa_id'  => $murid->id,
+                            'siswa_id' => $murid->id,
                         ],
                         [
                             'tanggal' => $jadwal->tanggal,
-                            'status'  => $weighted[array_rand($weighted)],
+                            'status' => $weighted[array_rand($weighted)],
                             'is_open' => false,
                         ]
                     );

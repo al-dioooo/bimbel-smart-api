@@ -28,24 +28,24 @@ Route::group(['middleware' => ['auth:sanctum', 'mentor.scope']], function () {
 
     // Data (read)
     Route::apiResource('kelas', KelasController::class)->only(['index', 'show'])->parameters([
-        'kelas' => 'kelas'
+        'kelas' => 'kelas',
     ]);
     Route::apiResource('siswa', SiswaController::class)->only(['index', 'show'])->parameters([
-        'siswa' => 'siswa'
+        'siswa' => 'siswa',
     ]);
 
     // Absensi — mentors save attendance for their own jadwal.
     Route::apiResource('absensi', AbsensiController::class)->only(['index', 'show', 'store'])->parameters([
-        'absensi' => 'absensi'
+        'absensi' => 'absensi',
     ]);
 
     // Jadwal
     Route::apiResource('jadwal', JadwalController::class)->only(['index', 'show'])->parameters([
-        'jadwal' => 'jadwal'
+        'jadwal' => 'jadwal',
     ]);
     // Mentors submit requests and may cancel their own pending ones.
     Route::apiResource('pengajuan-jadwal', PengajuanJadwalController::class)->only(['index', 'show', 'store', 'destroy'])->parameters([
-        'pengajuanJadwal' => 'pengajuanJadwal'
+        'pengajuanJadwal' => 'pengajuanJadwal',
     ]);
 
     // Report — both are derived on read (there is no report_absensi table), so
@@ -56,41 +56,41 @@ Route::group(['middleware' => ['auth:sanctum', 'mentor.scope']], function () {
 
     // Notifications — each user reads and marks their own.
     Route::apiResource('notification', NotificationController::class)->only(['index', 'show', 'update', 'destroy'])->parameters([
-        'notification' => 'notification'
+        'notification' => 'notification',
     ]);
 
     // Admin only.
     Route::middleware('admin')->group(function () {
         Route::apiResource('kelas', KelasController::class)->except(['index', 'show'])->parameters([
-            'kelas' => 'kelas'
+            'kelas' => 'kelas',
         ]);
         Route::apiResource('siswa', SiswaController::class)->except(['index', 'show'])->parameters([
-            'siswa' => 'siswa'
+            'siswa' => 'siswa',
         ]);
         Route::apiResource('mentor', MentorController::class)->parameters([
-            'mentor' => 'mentor'
+            'mentor' => 'mentor',
         ]);
 
         Route::apiResource('absensi', AbsensiController::class)->only(['update', 'destroy'])->parameters([
-            'absensi' => 'absensi'
+            'absensi' => 'absensi',
         ]);
 
         Route::apiResource('jadwal', JadwalController::class)->except(['index', 'show'])->parameters([
-            'jadwal' => 'jadwal'
+            'jadwal' => 'jadwal',
         ]);
         // Approving or rejecting is the only update.
         Route::apiResource('pengajuan-jadwal', PengajuanJadwalController::class)->only(['update'])->parameters([
-            'pengajuanJadwal' => 'pengajuanJadwal'
+            'pengajuanJadwal' => 'pengajuanJadwal',
         ]);
 
         Route::apiResource('aturan-gaji', AturanGajiController::class)->parameters([
-            'aturanGaji' => 'aturanGaji'
+            'aturanGaji' => 'aturanGaji',
         ]);
 
         Route::get('report/gaji', [ReportGajiController::class, 'index']);
 
         Route::apiResource('notification', NotificationController::class)->only(['store'])->parameters([
-            'notification' => 'notification'
+            'notification' => 'notification',
         ]);
     });
 });

@@ -29,7 +29,7 @@ class AbsensiController extends Controller
 
         return response()->json([
             'message' => 'Successfully get absensi data.',
-            'data' => $data
+            'data' => $data,
         ]);
     }
 
@@ -73,11 +73,11 @@ class AbsensiController extends Controller
                 Absensi::updateOrCreate(
                     [
                         'jadwal_id' => $jadwal->id,
-                        'siswa_id'  => $row['siswa_id'],
+                        'siswa_id' => $row['siswa_id'],
                     ],
                     [
                         'tanggal' => $tanggal,
-                        'status'  => strtolower($row['status']),
+                        'status' => strtolower($row['status']),
                     ]
                 );
             }
@@ -90,14 +90,14 @@ class AbsensiController extends Controller
 
             return response()->json([
                 'message' => 'Successfully store absensi data.',
-                'data' => $data
+                'data' => $data,
             ], 201);
         } catch (\Throwable $e) {
             DB::rollBack();
 
             return response()->json([
                 'message' => 'Failed to store absensi data.',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -110,7 +110,7 @@ class AbsensiController extends Controller
 
         return response()->json([
             'message' => 'Successfully get absensi data.',
-            'data' => $absensi
+            'data' => $absensi,
         ]);
     }
 
@@ -130,14 +130,14 @@ class AbsensiController extends Controller
 
             return response()->json([
                 'message' => 'Successfully update absensi data.',
-                'data' => $absensi
+                'data' => $absensi,
             ], 200);
         } catch (\Throwable $e) {
             DB::rollBack();
 
             return response()->json([
                 'message' => 'Failed to update absensi data.',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -152,14 +152,14 @@ class AbsensiController extends Controller
             DB::commit();
 
             return response()->json([
-                'message' => 'Successfully delete absensi data.'
+                'message' => 'Successfully delete absensi data.',
             ], 200);
         } catch (\Throwable $e) {
             DB::rollBack();
 
             return response()->json([
                 'message' => 'Failed to delete absensi data.',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateJadwalRequest extends FormRequest
@@ -17,7 +18,7 @@ class UpdateJadwalRequest extends FormRequest
     /**
      * Get the validation rules that apply to the request.
      *
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
+     * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
@@ -28,7 +29,7 @@ class UpdateJadwalRequest extends FormRequest
             'waktu_mulai' => ['sometimes', 'date_format:H:i'],
             'waktu_selesai' => ['sometimes', 'date_format:H:i', 'required_with:waktu_mulai', 'after:waktu_mulai'],
 
-            'materi' => ['nullable', 'string', 'max:255']
+            'materi' => ['nullable', 'string', 'max:255'],
         ];
     }
 }

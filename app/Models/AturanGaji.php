@@ -11,7 +11,7 @@ class AturanGaji extends Model
 
     protected $fillable = [
         'kelas_id',
-        'tarif'
+        'tarif',
     ];
 
     protected function casts(): array
@@ -30,7 +30,6 @@ class AturanGaji extends Model
      * Resource filter function.
      *
      * @param  mixed  $query
-     * @param  array  $filters
      * @return mixed $query
      */
     public function scopeFilter($query, array $filters)
@@ -38,8 +37,8 @@ class AturanGaji extends Model
         // ILIKE on PostgreSQL; MySQL's default collation is already case insensitive.
         $like = Sql::like();
         $query->when($filters['search'] ?? null, function ($query, $value) use ($like) {
-            $query->where('kelas.nama', $like, '%' . $value . '%')
-                ->orWhere('kelas.tingkat', $like, '%' . $value . '%');
+            $query->where('kelas.nama', $like, '%'.$value.'%')
+                ->orWhere('kelas.tingkat', $like, '%'.$value.'%');
         })->when($filters['kelas_id'] ?? null, function ($query, $value) {
             $query->where('aturan_gaji.kelas_id', $value);
         });

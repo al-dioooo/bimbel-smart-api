@@ -37,8 +37,8 @@ class ReportAbsensiController extends Controller
 
         if ($search = $request->query('search')) {
             $query->where(function ($q) use ($search) {
-                $q->where('kelas.nama', 'like', '%' . $search . '%')
-                    ->orWhere('users.name', 'like', '%' . $search . '%');
+                $q->where('kelas.nama', 'like', '%'.$search.'%')
+                    ->orWhere('users.name', 'like', '%'.$search.'%');
             });
         }
 
@@ -71,7 +71,7 @@ class ReportAbsensiController extends Controller
 
         return response()->json([
             'message' => 'Successfully get report absensi data.',
-            'data' => $data
+            'data' => $data,
         ], 200);
     }
 
@@ -97,7 +97,7 @@ class ReportAbsensiController extends Controller
             ->groupBy('siswa.id', 'siswa.nama');
 
         if ($search = $request->query('search')) {
-            $query->where('siswa.nama', 'like', '%' . $search . '%');
+            $query->where('siswa.nama', 'like', '%'.$search.'%');
         }
 
         if (($from = $request->query('from')) && ($to = $request->query('to'))) {
@@ -138,7 +138,7 @@ class ReportAbsensiController extends Controller
             'data' => [
                 'kelas' => $kelas,
                 'rekap' => $data,
-            ]
+            ],
         ], 200);
     }
 }

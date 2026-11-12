@@ -29,7 +29,7 @@ return new class extends Migration
             $table->string('kontak_wali')->nullable();
             $table->string('pekerjaan_wali')->nullable();
             $table->text('alamat_wali')->nullable();
-            
+
             $table->dateTime('tanggal_bergabung')->useCurrent();
             $table->timestamps();
         });

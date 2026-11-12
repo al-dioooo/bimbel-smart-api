@@ -28,7 +28,7 @@ class NotificationController extends Controller
 
         return response()->json([
             'message' => 'Successfully get notification data.',
-            'data' => $data
+            'data' => $data,
         ]);
     }
 
@@ -46,14 +46,14 @@ class NotificationController extends Controller
 
             return response()->json([
                 'message' => 'Successfully store notification data.',
-                'data' => $notification
+                'data' => $notification,
             ], 201);
         } catch (\Throwable $e) {
             DB::rollBack();
 
             return response()->json([
                 'message' => 'Failed to store notification data.',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -67,7 +67,7 @@ class NotificationController extends Controller
 
         return response()->json([
             'message' => 'Successfully get notification data.',
-            'data' => $notification
+            'data' => $notification,
         ]);
     }
 
@@ -92,14 +92,14 @@ class NotificationController extends Controller
 
             return response()->json([
                 'message' => 'Successfully update notification data.',
-                'data' => $notification
+                'data' => $notification,
             ], 200);
         } catch (\Throwable $e) {
             DB::rollBack();
 
             return response()->json([
                 'message' => 'Failed to update notification data.',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -119,14 +119,14 @@ class NotificationController extends Controller
             DB::commit();
 
             return response()->json([
-                'message' => 'Successfully delete notification data.'
+                'message' => 'Successfully delete notification data.',
             ], 200);
         } catch (\Throwable $e) {
             DB::rollBack();
 
             return response()->json([
                 'message' => 'Failed to delete notification data.',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }

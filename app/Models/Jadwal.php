@@ -26,7 +26,7 @@ class Jadwal extends Model
         'waktu_mulai',
         'waktu_selesai',
 
-        'materi'
+        'materi',
     ];
 
     public function kelas()
@@ -38,7 +38,6 @@ class Jadwal extends Model
      * Resource filter function.
      *
      * @param  mixed  $query
-     * @param  array  $filters
      * @return mixed $query
      */
     public function scopeFilter($query, array $filters)
@@ -47,7 +46,7 @@ class Jadwal extends Model
         // ILIKE on PostgreSQL; MySQL's default collation is already case insensitive.
         $like = Sql::like();
 
-        $query->when($filters['search'] ?? null, function ($query, $value) use ($table, $like) {
+        $query->when($filters['search'] ?? null, function ($query, $value) use ($like) {
             $splittedValue = explode(' ', $value);
             $mappedValueArray = [];
 
@@ -56,13 +55,13 @@ class Jadwal extends Model
                 array_push($mappedValueArray, $row);
             }
 
-            $mappedValue = implode("%", $mappedValueArray);
+            $mappedValue = implode('%', $mappedValueArray);
 
             $query->whereHas('kelas', function ($query) use ($mappedValue, $like) {
-                $query->where('nama', $like, '%' . $mappedValue . '%');
+                $query->where('nama', $like, '%'.$mappedValue.'%');
             });
         })->when($filters['kelas_id'] ?? null, function ($query, $value) use ($table) {
-            $query->where("{$table}.kelas_id",  $value);
+            $query->where("{$table}.kelas_id", $value);
         })->when($filters['mentor_id'] ?? null, function ($query, $value) {
             $query->whereRelation('kelas', 'mentor_id', $value);
         })->when(($filters['from'] ?? null) && ($filters['to'] ?? null), function ($query) use ($filters, $table) {

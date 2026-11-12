@@ -18,11 +18,11 @@ class PengajuanJadwalController extends Controller
     public function index(Request $request)
     {
         $query = PengajuanJadwal::with(['jadwal.kelas.mentor.user'])->filter($request->only(['search', 'mentor_id', 'status', 'from', 'to']));
-        $data = $this->paginate($query, $request->query('limit') ?? 10, $request->query('paginate'), $request->query('order_by') ?? "created_at", $request->query('direction') ?? "desc");
+        $data = $this->paginate($query, $request->query('limit') ?? 10, $request->query('paginate'), $request->query('order_by') ?? 'created_at', $request->query('direction') ?? 'desc');
 
         return response()->json([
             'message' => 'Successfully get pengajuan jadwal data.',
-            'data' => $data
+            'data' => $data,
         ]);
     }
 
@@ -56,14 +56,14 @@ class PengajuanJadwalController extends Controller
 
             return response()->json([
                 'message' => 'Successfully store pengajuan jadwal data.',
-                'data' => $pengajuanJadwal
+                'data' => $pengajuanJadwal,
             ], 201);
         } catch (\Throwable $e) {
             DB::rollBack();
 
             return response()->json([
                 'message' => 'Failed to store pengajuan jadwal data.',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -77,7 +77,7 @@ class PengajuanJadwalController extends Controller
 
         return response()->json([
             'message' => 'Successfully get pengajuan jadwal data.',
-            'data' => $pengajuanJadwal
+            'data' => $pengajuanJadwal,
         ]);
     }
 
@@ -95,14 +95,14 @@ class PengajuanJadwalController extends Controller
 
             return response()->json([
                 'message' => 'Successfully update pengajuan jadwal data.',
-                'data' => $pengajuanJadwal
+                'data' => $pengajuanJadwal,
             ], 200);
         } catch (\Throwable $e) {
             DB::rollBack();
 
             return response()->json([
                 'message' => 'Failed to update pengajuan jadwal data.',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -126,14 +126,14 @@ class PengajuanJadwalController extends Controller
             DB::commit();
 
             return response()->json([
-                'message' => 'Successfully delete pengajuan jadwal data.'
+                'message' => 'Successfully delete pengajuan jadwal data.',
             ], 200);
         } catch (\Throwable $e) {
             DB::rollBack();
 
             return response()->json([
                 'message' => 'Failed to delete pengajuan jadwal data.',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }

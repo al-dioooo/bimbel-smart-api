@@ -18,7 +18,7 @@ class Notification extends Model
         'title',
         'message',
         'link',
-        'is_read'
+        'is_read',
     ];
 
     /**
@@ -35,7 +35,6 @@ class Notification extends Model
      * Resource filter function.
      *
      * @param  mixed  $query
-     * @param  array  $filters
      * @return mixed $query
      */
     public function scopeFilter($query, array $filters)
