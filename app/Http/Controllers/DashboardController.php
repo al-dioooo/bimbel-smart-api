@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Kelas;
+use App\Models\Mentor;
 use App\Models\Siswa;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -69,6 +71,9 @@ class DashboardController extends Controller
                     'to' => $to->toDateString(),
                 ],
                 'total_siswa' => Siswa::when($mentorId, fn ($query) => $query->whereRelation('kelas', 'mentor_id', $mentorId))->count(),
+                // REQ-067. A mentor sees the kelas they teach; the mentor count is admin-only.
+                'total_kelas' => Kelas::when($mentorId, fn ($query) => $query->where('mentor_id', $mentorId))->count(),
+                ...($mentorId ? [] : ['total_mentor' => Mentor::count()]),
                 'total_kehadiran' => $hadir,
                 'penghasilan' => $penghasilan,
                 'persentase_kehadiran' => $total > 0 ? round(($hadir / $total) * 100) : 0,
