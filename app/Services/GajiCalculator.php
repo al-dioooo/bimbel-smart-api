@@ -177,6 +177,25 @@ class GajiCalculator
         ];
     }
 
+    /**
+     * One mentor's salary for one month, as on the slip (REQ-059 to REQ-061):
+     * the period block and the mentor's row of periode(); zeros when the
+     * mentor had nothing that month.
+     *
+     * @return array{periode: array<string, mixed>, mentor: array<string, mixed>}
+     */
+    public function slip(int $mentorId, string $mentorNama, string $bulan): array
+    {
+        $periode = $this->periode($bulan);
+        $mentor = collect($periode['mentor'])->firstWhere('mentor_id', $mentorId) ?? [
+            'mentor_id' => $mentorId, 'mentor' => $mentorNama, 'total_kehadiran' => 0,
+            'gaji_pokok' => 0.0, 'bonus' => 0.0, 'potongan' => 0.0, 'total' => 0.0, 'rincian' => [], 'penyesuaian' => [],
+        ];
+        unset($periode['mentor']);
+
+        return ['periode' => $periode, 'mentor' => $mentor];
+    }
+
     /** UC-10 3a: sessions of the month up to today with students but no absensi. */
     public function jadwalBelumDiabsen(string $bulan): int
     {

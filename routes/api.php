@@ -101,6 +101,7 @@ Route::group(['middleware' => ['auth:sanctum', 'mentor.scope']], function () {
         // UC-10: preview a month's payroll, then finalize and lock it.
         Route::get('report/gaji/periode/{bulan}', [ReportGajiController::class, 'periode']);
         Route::post('report/gaji', [ReportGajiController::class, 'finalize']);
+        Route::get('report/gaji/export', [ReportGajiController::class, 'export']);
 
         // REQ-064: manual bonus / potongan per mentor per month.
         Route::apiResource('penyesuaian-gaji', PenyesuaianGajiController::class);
