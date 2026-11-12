@@ -6,6 +6,8 @@ use App\Models\Jadwal;
 use App\Models\Kelas;
 use App\Models\Mentor;
 use App\Models\Siswa;
+use App\Services\GajiCalculator;
+use App\Support\Sql;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -19,7 +21,7 @@ class DashboardController extends Controller
      * to the current month. Optional ?mentor_id= limits every figure to the
      * kelas that mentor teaches.
      */
-    public function stats(Request $request)
+    public function stats(Request $request, GajiCalculator $gaji)
     {
         $from = $request->query('from')
             ? Carbon::parse($request->query('from'))->startOfDay()
@@ -55,14 +57,15 @@ class DashboardController extends Controller
         $alpa = (int) ($breakdown->alpa ?? 0);
         $total = (int) ($breakdown->total ?? 0);
 
-        // Earnings mirror ReportGaji: each `hadir` earns that kelas's tarif.
-        $penghasilan = (float) DB::table('absensi')
-            ->join('jadwal', 'jadwal.id', '=', 'absensi.jadwal_id')
-            ->leftJoin('aturan_gaji', 'aturan_gaji.kelas_id', '=', 'jadwal.kelas_id')
-            ->where('absensi.status', 'h')
-            ->whereBetween('absensi.tanggal', [$from->toDateString(), $to->toDateString()])
-            ->when($mentorId, $mentorJadwal)
-            ->sum('aturan_gaji.tarif');
+        // The same figure as the laporan gaji and the slip: pokok + bonus -
+        // potongan, finalized months as stored.
+        $penghasilan = (float) DB::query()
+            ->fromSub($gaji->rekap(array_filter([
+                'from' => $from->toDateString(),
+                'to' => $to->toDateString(),
+                'mentor_id' => $mentorId,
+            ])), 'gaji')
+            ->sum('nominal');
 
         return response()->json([
             'message' => 'Successfully get dashboard stats.',
@@ -122,6 +125,10 @@ class DashboardController extends Controller
             ->withCount('absensi')
             ->tap($milikMentor)
             ->whereDate('tanggal', '<', $today)
+            // A finalized month can no longer be filled (UC-10 step 9).
+            ->whereNotExists(fn ($final) => $final->selectRaw('1')->from('periode_gaji')
+                ->whereRaw(Sql::year('periode_gaji.periode').' = '.Sql::year('jadwal.tanggal'))
+                ->whereRaw(Sql::month('periode_gaji.periode').' = '.Sql::month('jadwal.tanggal')))
             ->where(fn ($q) => $q
                 ->where(fn ($kosong) => $kosong->doesntHave('absensi')->whereHas('kelas.siswa'))
                 ->orWhere(fn ($sebagian) => $sebagian->has('absensi')->whereExists(fn ($siswa) => $siswa

@@ -7,7 +7,7 @@ use App\Http\Requests\UpdateAturanGajiRequest;
 use App\Models\Absensi;
 use App\Models\AturanGaji;
 use App\Models\Kelas;
-use App\Models\PeriodeGaji;
+use App\Support\Sql;
 use App\Support\UniqueViolation;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -83,18 +83,6 @@ class AturanGajiController extends Controller
      */
     public function update(UpdateAturanGajiRequest $request, AturanGaji $aturanGaji)
     {
-        // UC-10 step 9: a tarif that paid a finalized month is closed with it.
-        $changes = collect($request->validated())->filter(fn ($value, $key) => (string) $value !== (string) $aturanGaji->{$key});
-        if ($changes->isNotEmpty()) {
-            foreach (array_unique(array_filter([$aturanGaji->kelas_id, $changes->get('kelas_id')])) as $kelasId) {
-                if ($periode = PeriodeGaji::usingKelas((int) $kelasId)) {
-                    throw ValidationException::withMessages([
-                        'aturan_gaji' => "Aturan gaji ini sudah dipakai pada periode gaji {$periode->label()} yang sudah difinalisasi, sehingga tidak dapat diubah.",
-                    ]);
-                }
-            }
-        }
-
         // Moving the tarif to another kelas would leave this kelas's hadir
         // without a tarif, which a delete is refused for.
         if ($request->has('kelas_id') && (int) $request->input('kelas_id') !== (int) $aturanGaji->kelas_id
@@ -109,11 +97,16 @@ class AturanGajiController extends Controller
         try {
             $aturanGaji->update($request->validated());
 
+            // Finalized months keep their stored amounts (report_gaji); the
+            // open months with kehadiran in this kelas are repriced.
+            $bulanTerdampak = $aturanGaji->wasChanged(['tarif', 'kelas_id']) ? self::bulanTerbuka($aturanGaji->kelas_id) : [];
+
             DB::commit();
 
             return response()->json([
                 'message' => 'Successfully update aturan gaji data.',
                 'data' => $aturanGaji,
+                'bulan_terdampak' => $bulanTerdampak,
             ], 200);
         } catch (\Throwable $e) {
             DB::rollBack();
@@ -166,6 +159,30 @@ class AturanGajiController extends Controller
     }
 
     /** Whether the kelas has `hadir` attendance; optionally locking the kelas row first. */
+    /**
+     * Months (YYYY-MM) not yet finalized in which the kelas has `hadir`, i.e.
+     * the salaries a tarif change recomputes.
+     *
+     * @return array<int, string>
+     */
+    private static function bulanTerbuka(int $kelasId): array
+    {
+        return DB::table('absensi')
+            ->join('jadwal', 'jadwal.id', '=', 'absensi.jadwal_id')
+            ->where('jadwal.kelas_id', $kelasId)
+            ->where('absensi.status', 'h')
+            ->whereNotExists(fn ($final) => $final->selectRaw('1')->from('periode_gaji')
+                ->whereRaw(Sql::year('periode_gaji.periode').' = '.Sql::year('jadwal.tanggal'))
+                ->whereRaw(Sql::month('periode_gaji.periode').' = '.Sql::month('jadwal.tanggal')))
+            ->selectRaw(Sql::year('jadwal.tanggal').' as tahun, '.Sql::month('jadwal.tanggal').' as bulan')
+            ->distinct()
+            ->get()
+            ->map(fn ($row) => sprintf('%04d-%02d', $row->tahun, $row->bulan))
+            ->sort()
+            ->values()
+            ->all();
+    }
+
     private static function kelasHasKehadiran(?int $kelasId, bool $lock = false): bool
     {
         if ($kelasId === null) {

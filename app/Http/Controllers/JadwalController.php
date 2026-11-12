@@ -36,6 +36,9 @@ class JadwalController extends Controller
         DB::beginTransaction();
 
         try {
+            // UC-10 step 9: a finalized month gets no new sessions.
+            PeriodeGaji::ensureOpen($request->validated('tanggal'), 'tanggal', 'jadwal', 'tidak dapat ditambahkan pada periode tersebut');
+
             $jadwal = Jadwal::create($request->validated());
 
             DB::commit();
@@ -46,6 +49,9 @@ class JadwalController extends Controller
             ], 201);
         } catch (\Throwable $e) {
             DB::rollBack();
+            if ($e instanceof ValidationException) {
+                throw $e;
+            }
 
             return response()->json([
                 'message' => 'Failed to store jadwal data.',
@@ -90,6 +96,12 @@ class JadwalController extends Controller
         DB::beginTransaction();
 
         try {
+            // Again inside the transaction, where it holds the month's lock until commit.
+            PeriodeGaji::ensureOpen($jadwal->tanggal, 'jadwal', 'jadwal ini');
+            if ($request->filled('tanggal')) {
+                PeriodeGaji::ensureOpen($request->input('tanggal'), 'tanggal', 'jadwal pada periode tersebut');
+            }
+
             $jadwal->update($request->validated());
 
             // REQ-045: attendance carries its jadwal's date.
@@ -106,6 +118,9 @@ class JadwalController extends Controller
             ], 200);
         } catch (\Throwable $e) {
             DB::rollBack();
+            if ($e instanceof ValidationException) {
+                throw $e;
+            }
 
             return response()->json([
                 'message' => 'Failed to update jadwal data.',
@@ -131,6 +146,9 @@ class JadwalController extends Controller
         DB::beginTransaction();
 
         try {
+            // Again inside the transaction, where it holds the month's lock until commit.
+            PeriodeGaji::ensureOpen($jadwal->tanggal, 'jadwal', 'jadwal ini');
+
             $jadwal->delete();
 
             DB::commit();
@@ -140,6 +158,9 @@ class JadwalController extends Controller
             ], 200);
         } catch (\Throwable $e) {
             DB::rollBack();
+            if ($e instanceof ValidationException) {
+                throw $e;
+            }
 
             // A row inserted after the check above: the foreign key refuses it.
             if ($this->isForeignKeyViolation($e)) {

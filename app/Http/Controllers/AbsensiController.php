@@ -112,6 +112,9 @@ class AbsensiController extends Controller
         DB::beginTransaction();
 
         try {
+            // Again inside the transaction, where it holds the month's lock until commit.
+            PeriodeGaji::ensureOpen($tanggalJadwal, 'jadwal_id', 'absensi pada jadwal ini');
+
             // Pairs with the lock in AturanGajiController::destroy: the tarif
             // of this kelas cannot be deleted while this attendance is stored.
             Kelas::whereKey($jadwal->kelas_id)->sharedLock()->first();
@@ -138,6 +141,9 @@ class AbsensiController extends Controller
             ], 201);
         } catch (\Throwable $e) {
             DB::rollBack();
+            if ($e instanceof ValidationException) {
+                throw $e;
+            }
             // Two submissions for the same siswa at the same time: the unique
             // index refuses the second one.
             UniqueViolation::rethrow($e);
@@ -168,6 +174,9 @@ class AbsensiController extends Controller
         DB::beginTransaction();
 
         try {
+            // Again inside the transaction, where it holds the month's lock until commit.
+            PeriodeGaji::ensureOpen($absensi->jadwal?->tanggal ?? $absensi->tanggal, 'absensi', 'absensi ini');
+
             $validated = $request->validated();
             if (isset($validated['status'])) {
                 $validated['status'] = strtolower($validated['status']);
@@ -183,6 +192,9 @@ class AbsensiController extends Controller
             ], 200);
         } catch (\Throwable $e) {
             DB::rollBack();
+            if ($e instanceof ValidationException) {
+                throw $e;
+            }
 
             return response()->json([
                 'message' => 'Failed to update absensi data.',
@@ -198,6 +210,9 @@ class AbsensiController extends Controller
         DB::beginTransaction();
 
         try {
+            // Again inside the transaction, where it holds the month's lock until commit.
+            PeriodeGaji::ensureOpen($absensi->jadwal?->tanggal ?? $absensi->tanggal, 'absensi', 'absensi ini');
+
             $absensi->delete();
 
             DB::commit();
@@ -207,6 +222,9 @@ class AbsensiController extends Controller
             ], 200);
         } catch (\Throwable $e) {
             DB::rollBack();
+            if ($e instanceof ValidationException) {
+                throw $e;
+            }
 
             return response()->json([
                 'message' => 'Failed to delete absensi data.',
