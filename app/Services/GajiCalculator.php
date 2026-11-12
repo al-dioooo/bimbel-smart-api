@@ -102,6 +102,27 @@ class GajiCalculator
     }
 
     /**
+     * The sums of rekap() for the same filters: gaji_pokok, bonus, potongan
+     * and total (what is paid). Used where one mentor's total is shown, so
+     * it is the same figure as the laporan gaji and the slip.
+     *
+     * @return array{gaji_pokok: float, bonus: float, potongan: float, total: float}
+     */
+    public function total(array $filters = []): array
+    {
+        $sum = DB::query()->fromSub($this->rekap($filters), 'gaji')
+            ->selectRaw('COALESCE(SUM(gaji_pokok), 0) as gaji_pokok, COALESCE(SUM(bonus), 0) as bonus, COALESCE(SUM(potongan), 0) as potongan, COALESCE(SUM(nominal), 0) as total')
+            ->first();
+
+        return [
+            'gaji_pokok' => (float) $sum->gaji_pokok,
+            'bonus' => (float) $sum->bonus,
+            'potongan' => (float) $sum->potongan,
+            'total' => (float) $sum->total,
+        ];
+    }
+
+    /**
      * The adjustments of one mentor, newest month first.
      *
      * @return Collection<int, PenyesuaianGaji>
