@@ -2,7 +2,9 @@
 
 use App\Models\Absensi;
 use App\Models\Siswa;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
 use Tests\Support\BimbelFixture;
 
@@ -72,6 +74,12 @@ describe('input ganda (D3)', function () {
 
         expect(($this->stored)($this->f->jLalu))->toBe([]);
     });
+
+    test('the database refuses a second row for the same siswa and jadwal', function () {
+        expect(fn () => DB::table('absensi')->insert([
+            'jadwal_id' => $this->f->jIsi->id, 'siswa_id' => $this->f->siswa['Andi']->id, 'tanggal' => BimbelFixture::day(-7), 'status' => 'a',
+        ]))->toThrow(QueryException::class);
+    });
 });
 
 describe('tanggal (D4)', function () {
@@ -103,4 +111,13 @@ describe('class membership (D5)', function () {
 
         expect(($this->stored)($this->f->jLalu))->toBe([]);
     })->with(['budi', 'admin']);
+});
+
+test('the migration lists existing duplicates instead of deleting them', function () {
+    $migration = require database_path('migrations/2026_11_12_000002_add_unique_siswa_per_jadwal_to_absensi_table.php');
+    $migration->down();
+    DB::table('absensi')->insert(['jadwal_id' => $this->f->jIsi->id, 'siswa_id' => $this->f->siswa['Andi']->id, 'tanggal' => BimbelFixture::day(-7), 'status' => 'a']);
+
+    expect(fn () => $migration->up())->toThrow(RuntimeException::class, "jadwal_id {$this->f->jIsi->id}, siswa_id {$this->f->siswa['Andi']->id}");
+    expect(Absensi::where('jadwal_id', $this->f->jIsi->id)->where('siswa_id', $this->f->siswa['Andi']->id)->count())->toBe(2);
 });
