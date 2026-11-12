@@ -34,10 +34,18 @@ class AturanGajiController extends Controller
      */
     public function store(StoreAturanGajiRequest $request)
     {
+        // UC-11: a bonus/potongan rule is a penyesuaian gaji for one mentor and month.
+        if ($request->isPenyesuaian()) {
+            return response()->json([
+                'message' => 'Penyesuaian gaji berhasil disimpan.',
+                'data' => PenyesuaianGajiController::create($request->validated(), $request->user()->id),
+            ], 201);
+        }
+
         DB::beginTransaction();
 
         try {
-            $aturanGaji = AturanGaji::create($request->validated());
+            $aturanGaji = AturanGaji::create($request->safe()->except('jenis'));
 
             DB::commit();
 

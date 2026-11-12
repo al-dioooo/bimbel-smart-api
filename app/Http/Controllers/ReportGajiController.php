@@ -3,65 +3,16 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ReportFilterRequest;
-use App\Support\Sql;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use App\Services\GajiCalculator;
 
 class ReportGajiController extends Controller
 {
+    public function __construct(private GajiCalculator $gaji) {}
+
     /**
-     * Gaji per mentor per bulan.
-     *
-     * A mentor's rate lives on aturan_gaji, keyed by kelas, and is earned per
-     * student attendance. So: for every `hadir` row under a jadwal of a kelas
-     * the mentor teaches, add that kelas's tarif.
-     *
-     * Note jadwal has no mentor_id — the mentor hangs off kelas.
+     * Gaji per mentor per bulan (REQ-055): Σ(hadir × tarif) plus the month's
+     * bonus minus potongan (REQ-064). `nominal` is the total to pay.
      */
-    private function baseQuery(Request $request)
-    {
-        $query = DB::table('jadwal')
-            ->join('kelas', 'kelas.id', '=', 'jadwal.kelas_id')
-            ->join('mentor', 'mentor.id', '=', 'kelas.mentor_id')
-            ->join('users', 'users.id', '=', 'mentor.user_id')
-            ->leftJoin('aturan_gaji', 'aturan_gaji.kelas_id', '=', 'jadwal.kelas_id')
-            ->leftJoin('absensi', function ($join) {
-                $join->on('absensi.jadwal_id', '=', 'jadwal.id')
-                    ->where('absensi.status', '=', 'h');
-            })
-            ->selectRaw("
-                mentor.id as mentor_id,
-                users.name as mentor,
-                {$this->yearExpr('jadwal.tanggal')} as tahun,
-                {$this->monthExpr('jadwal.tanggal')} as bulan,
-                COUNT(absensi.id) as total_kehadiran_murid,
-                COALESCE(SUM(CASE WHEN absensi.id IS NOT NULL THEN aturan_gaji.tarif ELSE 0 END), 0) as nominal
-            ")
-            ->groupBy('mentor.id', 'users.name', 'tahun', 'bulan');
-
-        if ($mentorId = $request->query('mentor_id')) {
-            $query->where('mentor.id', $mentorId);
-        }
-
-        if ($search = $request->query('search')) {
-            $query->where('users.name', Sql::like(), '%'.$search.'%');
-        }
-
-        // ?bulan=YYYY-MM
-        $bulan = $request->query('bulan');
-        if ($bulan && preg_match('/^(\d{4})-(\d{2})$/', $bulan, $m)) {
-            $query->whereYear('jadwal.tanggal', (int) $m[1])
-                ->whereMonth('jadwal.tanggal', (int) $m[2]);
-        }
-
-        if (($from = $request->query('from')) && ($to = $request->query('to'))) {
-            $query->whereDate('jadwal.tanggal', '>=', $from)
-                ->whereDate('jadwal.tanggal', '<=', $to);
-        }
-
-        return $query;
-    }
-
     public function index(ReportFilterRequest $request)
     {
         $allowedSorts = ['tahun', 'bulan', 'mentor', 'total_kehadiran_murid', 'nominal'];
@@ -70,11 +21,8 @@ class ReportGajiController extends Controller
             : 'tahun';
         $direction = $request->query('direction') === 'asc' ? 'asc' : 'desc';
 
-        // paginate() takes ($query, $limit, $usePagination, $orderBy, $direction) —
-        // the previous call passed only four arguments, so $orderBy landed in
-        // $usePagination and the sort was silently ignored.
         $data = $this->paginate(
-            $this->baseQuery($request),
+            $this->gaji->rekap($request->only(['mentor_id', 'search', 'bulan', 'from', 'to'])),
             $request->query('limit') ?? 10,
             $request->query('paginate'),
             $orderBy,
@@ -83,47 +31,20 @@ class ReportGajiController extends Controller
 
         return response()->json([
             'message' => 'Successfully get report gaji data.',
-            'data' => $data,
+            'data' => $this->mapRows($data, fn ($row) => self::numbers($row, ['tahun', 'bulan', 'total_kehadiran_murid'], ['gaji_pokok', 'bonus', 'potongan', 'nominal'])),
         ], 200);
     }
 
     /**
-     * Per-kelas breakdown behind one mentor's monthly total.
+     * Per-kelas breakdown behind one mentor's monthly total, with the
+     * adjustments of the same filter (all months, or ?bulan=).
      */
     public function show(ReportFilterRequest $request, $mentorId)
     {
         $this->authorizeOwner($mentorId);
 
-        $query = DB::table('jadwal')
-            ->join('kelas', 'kelas.id', '=', 'jadwal.kelas_id')
-            ->join('mentor', 'mentor.id', '=', 'kelas.mentor_id')
-            ->join('users', 'users.id', '=', 'mentor.user_id')
-            ->leftJoin('aturan_gaji', 'aturan_gaji.kelas_id', '=', 'jadwal.kelas_id')
-            ->leftJoin('absensi', function ($join) {
-                $join->on('absensi.jadwal_id', '=', 'jadwal.id')
-                    ->where('absensi.status', '=', 'h');
-            })
-            ->where('mentor.id', $mentorId)
-            ->selectRaw("
-                kelas.id as kelas_id,
-                kelas.nama as kelas,
-                users.name as mentor,
-                {$this->yearExpr('jadwal.tanggal')} as tahun,
-                {$this->monthExpr('jadwal.tanggal')} as bulan,
-                COALESCE(MAX(aturan_gaji.tarif), 0) as tarif,
-                COUNT(absensi.id) as jumlah_kehadiran,
-                COALESCE(SUM(CASE WHEN absensi.id IS NOT NULL THEN aturan_gaji.tarif ELSE 0 END), 0) as nominal
-            ")
-            ->groupBy('kelas.id', 'kelas.nama', 'users.name', 'tahun', 'bulan');
-
-        $bulan = $request->query('bulan');
-        if ($bulan && preg_match('/^(\d{4})-(\d{2})$/', $bulan, $m)) {
-            $query->whereYear('jadwal.tanggal', (int) $m[1])
-                ->whereMonth('jadwal.tanggal', (int) $m[2]);
-        }
-
         $data = $this->paginate(
-            $query,
+            $this->gaji->rincianKelas((int) $mentorId, $request->only(['bulan', 'from', 'to'])),
             $request->query('limit') ?? 10,
             $request->query('paginate'),
             'tahun',
@@ -132,7 +53,21 @@ class ReportGajiController extends Controller
 
         return response()->json([
             'message' => 'Successfully get report gaji detail.',
-            'data' => $data,
+            'data' => $this->mapRows($data, fn ($row) => self::numbers($row, ['tahun', 'bulan', 'jumlah_kehadiran'], ['tarif', 'nominal'])),
+            'penyesuaian' => $this->gaji->penyesuaian((int) $mentorId, $request->query('bulan')),
         ], 200);
+    }
+
+    /** PostgreSQL returns SUM() of numeric columns as strings; send numbers. */
+    private static function numbers(object $row, array $ints, array $floats): object
+    {
+        foreach ($ints as $key) {
+            $row->{$key} = (int) $row->{$key};
+        }
+        foreach ($floats as $key) {
+            $row->{$key} = (float) $row->{$key};
+        }
+
+        return $row;
     }
 }
