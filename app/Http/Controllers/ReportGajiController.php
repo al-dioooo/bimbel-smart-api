@@ -122,6 +122,11 @@ class ReportGajiController extends Controller
                 ->whereMonth('jadwal.tanggal', (int) $m[2]);
         }
 
+        if (($from = $request->query('from')) && ($to = $request->query('to'))) {
+            $query->whereDate('jadwal.tanggal', '>=', $from)
+                ->whereDate('jadwal.tanggal', '<=', $to);
+        }
+
         $data = $this->paginate(
             $query,
             $request->query('limit') ?? 10,
