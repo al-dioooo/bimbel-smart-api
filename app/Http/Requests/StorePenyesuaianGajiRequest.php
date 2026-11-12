@@ -29,7 +29,7 @@ class StorePenyesuaianGajiRequest extends FormRequest
             'mentor_id' => ['required', 'integer', 'exists:mentor,id'],
             'bulan' => ['required', 'regex:/^\d{4}-(0[1-9]|1[0-2])$/'],
             'jenis' => ['required', 'in:'.implode(',', PenyesuaianGaji::JENIS)],
-            'nominal' => ['required', 'numeric', 'min:1', 'max:9999999999999'],
+            'nominal' => ['required', 'numeric', 'decimal:0,2', 'min:1', 'max:9999999999999'],
             'keterangan' => ['nullable', 'string', 'max:255'],
         ];
     }
@@ -40,6 +40,7 @@ class StorePenyesuaianGajiRequest extends FormRequest
             'bulan.regex' => 'Format bulan harus YYYY-MM, misalnya 2026-10.',
             'jenis.in' => 'Jenis penyesuaian harus bonus atau potongan.',
             'nominal.min' => 'Nominal penyesuaian minimal 1.',
+            'nominal.decimal' => 'Nominal penyesuaian paling banyak dua angka di belakang koma.',
         ];
     }
 }

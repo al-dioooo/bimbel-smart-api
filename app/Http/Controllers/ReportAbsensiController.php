@@ -181,6 +181,12 @@ class ReportAbsensiController extends Controller
                 ->whereDate('absensi.tanggal', '<=', $to);
         }
 
+        // ?bulan=YYYY-MM (validated by ReportFilterRequest)
+        if ($bulan = $request->query('bulan')) {
+            [$tahun, $nomor] = array_map('intval', explode('-', $bulan));
+            $query->whereYear('absensi.tanggal', $tahun)->whereMonth('absensi.tanggal', $nomor);
+        }
+
         return $query;
     }
 
@@ -212,6 +218,12 @@ class ReportAbsensiController extends Controller
         if (($from = $request->query('from')) && ($to = $request->query('to'))) {
             $query->whereDate('absensi.tanggal', '>=', $from)
                 ->whereDate('absensi.tanggal', '<=', $to);
+        }
+
+        // ?bulan=YYYY-MM (validated by ReportFilterRequest)
+        if ($bulan = $request->query('bulan')) {
+            [$tahun, $nomor] = array_map('intval', explode('-', $bulan));
+            $query->whereYear('absensi.tanggal', $tahun)->whereMonth('absensi.tanggal', $nomor);
         }
 
         $kelas = DB::table('kelas')

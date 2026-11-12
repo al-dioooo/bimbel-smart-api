@@ -54,13 +54,39 @@ describe('input ganda (D3)', function () {
         expect(Absensi::where('siswa_id', $citra->id)->exists())->toBeFalse();
     });
 
-    test('a siswa added to the kelas later can still be recorded on a filled session', function () {
+    test('a filled session can be completed with a siswa who had joined by its date', function () {
         Sanctum::actingAs($this->f->budi);
-        $citra = Siswa::create(['nama' => 'Citra', 'kelas_id' => $this->f->k7a->id]);
+        $citra = Siswa::create(['nama' => 'Citra', 'kelas_id' => $this->f->k7a->id, 'tanggal_bergabung' => BimbelFixture::day(-7).' 15:00:00']);
 
         $this->postJson('/api/absensi', ['jadwal_id' => $this->f->jIsi->id, 'absensi' => [['siswa_id' => $citra->id, 'status' => 'S']]])
             ->assertCreated()
             ->assertJsonCount(3, 'data');
+    });
+
+    test('a filled session cannot be completed with a siswa who joined after its date', function (string $who) {
+        Sanctum::actingAs($who === 'admin' ? $this->f->admin : $this->f->budi);
+        $citra = Siswa::create(['nama' => 'Citra', 'kelas_id' => $this->f->k7a->id, 'tanggal_bergabung' => BimbelFixture::day(-6)]);
+
+        $this->postJson('/api/absensi', ['jadwal_id' => $this->f->jIsi->id, 'absensi' => [['siswa_id' => $citra->id, 'status' => 'H']]])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['absensi' => 'Siswa belum bergabung pada tanggal jadwal']);
+
+        expect(Absensi::where('siswa_id', $citra->id)->exists())->toBeFalse();
+    })->with(['budi', 'admin']);
+
+    test('a parallel submission caught by the unique index answers 422, not 500', function () {
+        Sanctum::actingAs($this->f->budi);
+        // The other request stores Andi after this one passed validation.
+        Absensi::creating(function ($a) {
+            if ($a->siswa_id === $this->f->siswa['Andi']->id) {
+                DB::table('absensi')->insert(['jadwal_id' => $a->jadwal_id, 'siswa_id' => $a->siswa_id, 'tanggal' => $a->tanggal, 'status' => 'a']);
+            }
+        });
+
+        $this->postJson('/api/absensi', ['jadwal_id' => $this->f->jLalu->id, 'absensi' => ($this->rows)(['Andi' => 'H', 'Bela' => 'H'])])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['absensi' => 'Absensi sudah diisi'])
+            ->assertJsonMissingPath('error');
     });
 
     test('the same siswa twice in one payload is refused (UC-08 2a)', function () {
@@ -120,4 +146,25 @@ test('the migration lists existing duplicates instead of deleting them', functio
 
     expect(fn () => $migration->up())->toThrow(RuntimeException::class, "jadwal_id {$this->f->jIsi->id}, siswa_id {$this->f->siswa['Andi']->id}");
     expect(Absensi::where('jadwal_id', $this->f->jIsi->id)->where('siswa_id', $this->f->siswa['Andi']->id)->count())->toBe(2);
+});
+
+test('an admin may fill a future jadwal, a mentor may not', function () {
+    $besok = $this->f->jadwal($this->f->k7a, BimbelFixture::day(2));
+
+    Sanctum::actingAs($this->f->budi);
+    $this->postJson('/api/absensi', ['jadwal_id' => $besok->id, 'absensi' => ($this->rows)(['Andi' => 'H'])])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['jadwal_id' => 'akan datang']);
+
+    Sanctum::actingAs($this->f->admin);
+    $this->postJson('/api/absensi', ['jadwal_id' => $besok->id, 'absensi' => ($this->rows)(['Andi' => 'H'])])->assertCreated();
+});
+
+test('moving a jadwal to another date moves its absensi with it', function () {
+    Sanctum::actingAs($this->f->admin);
+
+    $this->putJson("/api/jadwal/{$this->f->jIsi->id}", ['tanggal' => BimbelFixture::day(-3)])->assertOk();
+
+    $d = BimbelFixture::day(-3);
+    expect(($this->stored)($this->f->jIsi))->toBe([['Andi', 'h', $d], ['Bela', 's', $d]]);
 });
