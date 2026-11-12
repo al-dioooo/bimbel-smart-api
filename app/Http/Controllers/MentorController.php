@@ -11,6 +11,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
 
 class MentorController extends Controller
 {
@@ -137,14 +138,21 @@ class MentorController extends Controller
      */
     public function destroy(Mentor $mentor)
     {
+        // REQ-029: salary is attributed through kelas.mentor_id, so a mentor who
+        // still teaches cannot go; their kelas must be reassigned first.
+        $kelas = Kelas::where('mentor_id', $mentor->id)->orderBy('nama')->pluck('nama');
+        if ($kelas->isNotEmpty()) {
+            throw ValidationException::withMessages([
+                'mentor' => 'Mentor tidak dapat dihapus karena masih mengampu kelas: '.$kelas->implode(', ').'. Pindahkan kelas tersebut ke mentor lain terlebih dahulu.',
+            ]);
+        }
+
         DB::beginTransaction();
 
         try {
-            // Detach the mentor's classes, then remove the mentor and its user
-            // explicitly. Relying on the users -> mentor cascade left the order
-            // up to the driver, and failed on a foreign key under SQLite.
-            Kelas::where('mentor_id', $mentor->id)->update(['mentor_id' => null]);
-
+            // Remove the mentor and its user explicitly. Relying on the users ->
+            // mentor cascade left the order up to the driver, and failed on a
+            // foreign key under SQLite.
             $user = $mentor->user;
             $mentor->delete();
 

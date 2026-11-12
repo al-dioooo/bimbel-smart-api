@@ -50,3 +50,22 @@ test('a kelas without jadwal can be deleted', function () {
 
     expect(Kelas::find($this->f->k7b->id))->toBeNull();
 });
+
+test('a mentor who still teaches cannot be deleted, and the message names the kelas', function () {
+    $before = ($this->gaji)();
+
+    $this->deleteJson("/api/mentor/{$this->f->mBudi->id}")
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['mentor' => 'Matematika 7A, Matematika 7B']);
+
+    expect(Mentor::find($this->f->mBudi->id))->not->toBeNull()
+        ->and(Kelas::where('mentor_id', $this->f->mBudi->id)->count())->toBe(2)
+        ->and(($this->gaji)())->toBe($before);
+});
+
+test('a mentor without kelas can be deleted together with the account', function () {
+    $this->deleteJson("/api/mentor/{$this->f->mRina->id}")->assertOk();
+
+    expect(Mentor::find($this->f->mRina->id))->toBeNull()
+        ->and($this->f->rina->fresh())->toBeNull();
+});
