@@ -19,11 +19,11 @@ class AturanGajiController extends Controller
             ->join('kelas', 'aturan_gaji.kelas_id', '=', 'kelas.id')
             ->select(['aturan_gaji.*', 'kelas.nama as kelas_nama'])
             ->filter($request->only(['search', 'kelas_id']));
-        $data = $this->paginate($query, $request->query('limit') ?? 10, $request->query('paginate'), $request->query('order_by') ?? "created_at", $request->query('direction') ?? "desc");
+        $data = $this->paginate($query, $request->query('limit') ?? 10, $request->query('paginate'), $request->query('order_by') ?? 'created_at', $request->query('direction') ?? 'desc');
 
         return response()->json([
             'message' => 'Successfully get aturan gaji data.',
-            'data' => $data
+            'data' => $data,
         ]);
     }
 
@@ -41,14 +41,14 @@ class AturanGajiController extends Controller
 
             return response()->json([
                 'message' => 'Successfully store aturan gaji data.',
-                'data' => $aturanGaji
+                'data' => $aturanGaji,
             ], 201);
         } catch (\Throwable $e) {
             DB::rollBack();
 
             return response()->json([
                 'message' => 'Failed to store aturan gaji data.',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -60,7 +60,7 @@ class AturanGajiController extends Controller
     {
         return response()->json([
             'message' => 'Successfully get aturan gaji data.',
-            'data' => $aturanGaji
+            'data' => $aturanGaji,
         ]);
     }
 
@@ -78,14 +78,14 @@ class AturanGajiController extends Controller
 
             return response()->json([
                 'message' => 'Successfully update aturan gaji data.',
-                'data' => $aturanGaji
+                'data' => $aturanGaji,
             ], 200);
         } catch (\Throwable $e) {
             DB::rollBack();
 
             return response()->json([
                 'message' => 'Failed to update aturan gaji data.',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -103,14 +103,14 @@ class AturanGajiController extends Controller
             DB::commit();
 
             return response()->json([
-                'message' => 'Successfully delete aturan gaji data.'
+                'message' => 'Successfully delete aturan gaji data.',
             ], 200);
         } catch (\Throwable $e) {
             DB::rollBack();
 
             return response()->json([
                 'message' => 'Failed to delete aturan gaji data.',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }

@@ -42,7 +42,7 @@ class ReportGajiController extends Controller
         }
 
         if ($search = $request->query('search')) {
-            $query->where('users.name', 'like', '%' . $search . '%');
+            $query->where('users.name', 'like', '%'.$search.'%');
         }
 
         // ?bulan=YYYY-MM
@@ -81,7 +81,7 @@ class ReportGajiController extends Controller
 
         return response()->json([
             'message' => 'Successfully get report gaji data.',
-            'data'    => $data,
+            'data' => $data,
         ], 200);
     }
 
@@ -130,7 +130,7 @@ class ReportGajiController extends Controller
 
         return response()->json([
             'message' => 'Successfully get report gaji detail.',
-            'data'    => $data,
+            'data' => $data,
         ], 200);
     }
 }

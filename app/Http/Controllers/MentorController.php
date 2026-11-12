@@ -22,11 +22,11 @@ class MentorController extends Controller
         $query = Mentor::with(['user'])
             ->join('users', 'mentor.user_id', '=', 'users.id')->select(['mentor.*', 'users.name as user_name'])
             ->filter($request->only(['search', 'nama', 'kontak']));
-        $data = $this->paginate($query, $request->query('limit') ?? 10, $request->query('paginate'), $request->query('order_by') ?? "created_at", $request->query('direction') ?? "desc");
+        $data = $this->paginate($query, $request->query('limit') ?? 10, $request->query('paginate'), $request->query('order_by') ?? 'created_at', $request->query('direction') ?? 'desc');
 
         return response()->json([
             'message' => 'Successfully get mentor data.',
-            'data' => $data
+            'data' => $data,
         ]);
     }
 
@@ -42,7 +42,7 @@ class MentorController extends Controller
                 'name' => $request->input('name'),
                 'username' => $request->input('username'),
                 'email' => $request->input('email'),
-                'password' => bcrypt($request->input('password'))
+                'password' => bcrypt($request->input('password')),
             ]);
 
             $mentor = Mentor::create([
@@ -51,21 +51,21 @@ class MentorController extends Controller
                 'tempat_tanggal_lahir' => $request->input('tempat_tanggal_lahir'),
                 'nik' => $request->input('nik'),
                 'npwp' => $request->input('npwp'),
-                'alamat' => $request->input('alamat')
+                'alamat' => $request->input('alamat'),
             ]);
 
             DB::commit();
 
             return response()->json([
                 'message' => 'Successfully store mentor data.',
-                'data' => $mentor
+                'data' => $mentor,
             ], 201);
         } catch (\Throwable $e) {
             DB::rollBack();
 
             return response()->json([
                 'message' => 'Failed to store mentor data.',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -79,7 +79,7 @@ class MentorController extends Controller
 
         return response()->json([
             'message' => 'Successfully get mentor data.',
-            'data' => $mentor
+            'data' => $mentor,
         ]);
     }
 
@@ -95,8 +95,8 @@ class MentorController extends Controller
 
             // Bangun payload user tanpa password dulu
             $userData = [
-                'name'     => $request->input('name'),
-                'email'    => $request->input('email'),
+                'name' => $request->input('name'),
+                'email' => $request->input('email'),
                 'username' => $request->input('username'),
             ];
 
@@ -109,25 +109,25 @@ class MentorController extends Controller
 
             // Update Mentor profile
             $mentor->update([
-                'kontak'               => $request->input('kontak'),
+                'kontak' => $request->input('kontak'),
                 'tempat_tanggal_lahir' => $request->input('tempat_tanggal_lahir'),
-                'nik'                  => $request->input('nik'),
-                'npwp'                 => $request->input('npwp'),
-                'alamat'               => $request->input('alamat')
+                'nik' => $request->input('nik'),
+                'npwp' => $request->input('npwp'),
+                'alamat' => $request->input('alamat'),
             ]);
 
             DB::commit();
 
             return response()->json([
                 'message' => 'Successfully update mentor data.',
-                'data'    => $mentor->load('user'),
+                'data' => $mentor->load('user'),
             ], 200);
         } catch (\Throwable $e) {
             DB::rollBack();
 
             return response()->json([
                 'message' => 'Failed to update mentor data.',
-                'error'   => $e->getMessage(),
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -159,14 +159,14 @@ class MentorController extends Controller
             DB::commit();
 
             return response()->json([
-                'message' => 'Successfully delete mentor data.'
+                'message' => 'Successfully delete mentor data.',
             ], 200);
         } catch (\Throwable $e) {
             DB::rollBack();
 
             return response()->json([
                 'message' => 'Failed to delete mentor data.',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }

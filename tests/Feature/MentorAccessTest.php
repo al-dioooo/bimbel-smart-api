@@ -119,7 +119,7 @@ test('mentor lists only contain their own kelas, even when asking for another me
     expect(collect(rows($this->getJson("/api/report/absensi?$other")))->pluck('kelas_id')->all())
         ->toBe([$this->a->kelas->id]);
 
-    $stats = $this->getJson("/api/dashboard/stats?mentor_id={$this->b->mentor->id}&from=" . now()->subMonth()->toDateString() . '&to=' . now()->toDateString());
+    $stats = $this->getJson("/api/dashboard/stats?mentor_id={$this->b->mentor->id}&from=".now()->subMonth()->toDateString().'&to='.now()->toDateString());
     expect($stats->json('data.total_siswa'))->toBe(1)
         ->and($stats->json('data.kehadiran.total'))->toBe(1);
 });

@@ -21,7 +21,7 @@ return new class extends Migration
             $table->string('kontak', 100)->nullable();
             $table->string('nik', 16)->nullable();
             $table->string('npwp', 25)->nullable();
-            
+
             $table->text('alamat')->nullable();
 
             $table->timestamps();

@@ -48,8 +48,8 @@ class DashboardController extends Controller
 
         $hadir = (int) ($breakdown->hadir ?? 0);
         $sakit = (int) ($breakdown->sakit ?? 0);
-        $izin  = (int) ($breakdown->izin ?? 0);
-        $alpa  = (int) ($breakdown->alpa ?? 0);
+        $izin = (int) ($breakdown->izin ?? 0);
+        $alpa = (int) ($breakdown->alpa ?? 0);
         $total = (int) ($breakdown->total ?? 0);
 
         // Earnings mirror ReportGaji: each `hadir` earns that kelas's tarif.
@@ -66,17 +66,17 @@ class DashboardController extends Controller
             'data' => [
                 'periode' => [
                     'from' => $from->toDateString(),
-                    'to'   => $to->toDateString(),
+                    'to' => $to->toDateString(),
                 ],
-                'total_siswa'     => Siswa::when($mentorId, fn ($query) => $query->whereRelation('kelas', 'mentor_id', $mentorId))->count(),
+                'total_siswa' => Siswa::when($mentorId, fn ($query) => $query->whereRelation('kelas', 'mentor_id', $mentorId))->count(),
                 'total_kehadiran' => $hadir,
-                'penghasilan'     => $penghasilan,
+                'penghasilan' => $penghasilan,
                 'persentase_kehadiran' => $total > 0 ? round(($hadir / $total) * 100) : 0,
                 'kehadiran' => [
                     'hadir' => $hadir,
                     'sakit' => $sakit,
-                    'izin'  => $izin,
-                    'alpa'  => $alpa,
+                    'izin' => $izin,
+                    'alpa' => $alpa,
                     'total' => $total,
                 ],
             ],

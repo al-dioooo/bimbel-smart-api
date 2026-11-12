@@ -13,7 +13,7 @@ class AuthController extends Controller
     {
         $request->validate([
             'identifier' => ['required', 'string'],
-            'password'   => ['required', 'string'],
+            'password' => ['required', 'string'],
         ]);
 
         $identifier = $request->identifier;
@@ -23,14 +23,14 @@ class AuthController extends Controller
             ->orWhere('username', $identifier)
             ->first();
 
-        if (!$user || !Hash::check($request->password, $user->password)) {
+        if (! $user || ! Hash::check($request->password, $user->password)) {
             return response()->json([
                 'message' => 'Invalid credentials',
             ], 401);
         }
 
         // If mentor, validate mentor profile
-        if ($user->isMentor() && !$user->mentor) {
+        if ($user->isMentor() && ! $user->mentor) {
             return response()->json([
                 'message' => 'Mentor profile is incomplete',
             ], 403);
@@ -46,8 +46,8 @@ class AuthController extends Controller
             'message' => 'Login successful',
             'data' => [
                 'token' => $token,
-                'user'    => $user->load('mentor')
-            ]
+                'user' => $user->load('mentor'),
+            ],
         ]);
     }
 
@@ -63,7 +63,7 @@ class AuthController extends Controller
         $user = $request->user()->update($request->validated());
 
         return response()->json([
-            'message' => 'Profile updated successfully'
+            'message' => 'Profile updated successfully',
         ]);
     }
 
@@ -71,7 +71,7 @@ class AuthController extends Controller
     {
         return response()->json([
             'message' => 'User data retrieved successfully',
-            'data' => $request->user()->load('mentor')
+            'data' => $request->user()->load('mentor'),
         ]);
     }
 }

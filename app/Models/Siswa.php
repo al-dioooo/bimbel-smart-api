@@ -32,8 +32,8 @@ class Siswa extends Model
         'kontak_wali',
         'pekerjaan_wali',
         'alamat_wali',
-        
-        'tanggal_bergabung'
+
+        'tanggal_bergabung',
     ];
 
     /**
@@ -50,7 +50,6 @@ class Siswa extends Model
      * Resource filter function.
      *
      * @param  mixed  $query
-     * @param  array  $filters
      * @return mixed $query
      */
     public function scopeFilter($query, array $filters)
@@ -68,17 +67,17 @@ class Siswa extends Model
                 array_push($mappedValueArray, $row);
             }
 
-            $mappedValue = implode("%", $mappedValueArray);
+            $mappedValue = implode('%', $mappedValueArray);
 
             // Grouped, so the OR cannot escape the other filters (e.g. mentor_id).
             $query->where(function ($query) use ($table, $like, $mappedValue) {
-                $query->where("{$table}.nama", $like, '%' . $mappedValue . '%')->orWhere("{$table}.kontak", $like, '%' . $mappedValue . '%');
+                $query->where("{$table}.nama", $like, '%'.$mappedValue.'%')->orWhere("{$table}.kontak", $like, '%'.$mappedValue.'%');
             });
         })->when($filters['nama'] ?? null, function ($query, $value) use ($table, $like) {
-            $query->where("{$table}.nama", $like, '%' . $value . '%');
-        })->when($filters['kelas'] ?? null, function ($query, $value) use ($table, $like) {
+            $query->where("{$table}.nama", $like, '%'.$value.'%');
+        })->when($filters['kelas'] ?? null, function ($query, $value) use ($like) {
             $query->whereHas('kelas', function ($query) use ($value, $like) {
-                $query->where('id')->where("nama", $like, '%' . $value . '%')->orWhere("tingkat", $like, '%' . $value . '%');
+                $query->where('id')->where('nama', $like, '%'.$value.'%')->orWhere('tingkat', $like, '%'.$value.'%');
             });
         })->when($filters['kelas_id'] ?? null, function ($query, $value) {
             $query->whereRelation('kelas', 'id', $value);

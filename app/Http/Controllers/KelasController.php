@@ -19,11 +19,11 @@ class KelasController extends Controller
     {
         $query = Kelas::with(['mentor.user'])
             ->filter($request->only(['search', 'nama', 'tingkat', 'mentor_id', 'from', 'to']));
-        $data = $this->paginate($query, $request->query('limit') ?? 10, $request->query('paginate'), $request->query('order_by') ?? "created_at", $request->query('direction') ?? "desc");
+        $data = $this->paginate($query, $request->query('limit') ?? 10, $request->query('paginate'), $request->query('order_by') ?? 'created_at', $request->query('direction') ?? 'desc');
 
         return response()->json([
             'message' => 'Successfully get kelas data.',
-            'data' => $data
+            'data' => $data,
         ]);
     }
 
@@ -38,7 +38,7 @@ class KelasController extends Controller
             $kelas = Kelas::create($request->validatedExcept('siswa'));
             $aturanGaji = AturanGaji::create([
                 'kelas_id' => $kelas->id,
-                'tarif' => 30000
+                'tarif' => 30000,
             ]);
 
             if ($request->has('siswa')) {
@@ -55,14 +55,14 @@ class KelasController extends Controller
 
             return response()->json([
                 'message' => 'Successfully store kelas data.',
-                'data' => $kelas
+                'data' => $kelas,
             ], 201);
         } catch (\Throwable $e) {
             DB::rollBack();
 
             return response()->json([
                 'message' => 'Failed to store kelas data.',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -78,7 +78,7 @@ class KelasController extends Controller
 
         return response()->json([
             'message' => 'Successfully get kelas data.',
-            'data' => $kelas
+            'data' => $kelas,
         ]);
     }
 
@@ -106,14 +106,14 @@ class KelasController extends Controller
 
             return response()->json([
                 'message' => 'Successfully update kelas data.',
-                'data' => $kelas
+                'data' => $kelas,
             ], 200);
         } catch (\Throwable $e) {
             DB::rollBack();
 
             return response()->json([
                 'message' => 'Failed to update kelas data.',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -131,14 +131,14 @@ class KelasController extends Controller
             DB::commit();
 
             return response()->json([
-                'message' => 'Successfully delete kelas data.'
+                'message' => 'Successfully delete kelas data.',
             ], 200);
         } catch (\Throwable $e) {
             DB::rollBack();
 
             return response()->json([
                 'message' => 'Failed to delete kelas data.',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }

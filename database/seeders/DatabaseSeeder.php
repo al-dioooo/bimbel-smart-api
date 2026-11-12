@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Models\Kelas;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
@@ -23,7 +22,7 @@ class DatabaseSeeder extends Seeder
             'name' => 'Alice',
             'email' => 'hello@aliceevr.com',
             'role' => 1,
-            'password' => bcrypt('password')
+            'password' => bcrypt('password'),
         ]);
 
         $mentor = User::factory()->create([
@@ -31,7 +30,7 @@ class DatabaseSeeder extends Seeder
             'name' => 'Uyoy',
             'email' => 'hello@imjeaansly.com',
             'role' => 0,
-            'password' => bcrypt('password')
+            'password' => bcrypt('password'),
         ]);
 
         $this->call([
@@ -42,7 +41,7 @@ class DatabaseSeeder extends Seeder
             AturanGajiSeeder::class,
             NotificationSeeder::class,
             AbsensiSeeder::class,
-            PengajuanJadwalSeeder::class
+            PengajuanJadwalSeeder::class,
         ]);
     }
 }

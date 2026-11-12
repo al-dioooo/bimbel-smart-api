@@ -5,7 +5,6 @@ namespace Database\Seeders;
 use App\Models\Jadwal;
 use App\Models\PengajuanJadwal;
 use Carbon\Carbon;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class PengajuanJadwalSeeder extends Seeder
@@ -29,7 +28,7 @@ class PengajuanJadwalSeeder extends Seeder
                 'alasan' => fake()->sentence(),
                 'status' => $index === 0 ? 'pending' : ($index === 2 ? 'ditolak' : 'diterima'),
                 'created_at' => Carbon::now(),
-                'updated_at' => Carbon::now()
+                'updated_at' => Carbon::now(),
             ]);
         }
     }

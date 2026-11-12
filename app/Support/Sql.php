@@ -38,9 +38,9 @@ class Sql
     public static function year(string $column): string
     {
         return match (self::driver()) {
-            'pgsql'  => "EXTRACT(YEAR FROM {$column})::int",
+            'pgsql' => "EXTRACT(YEAR FROM {$column})::int",
             'sqlite' => "CAST(strftime('%Y', {$column}) AS INTEGER)",
-            default  => "YEAR({$column})",
+            default => "YEAR({$column})",
         };
     }
 
@@ -48,9 +48,9 @@ class Sql
     public static function month(string $column): string
     {
         return match (self::driver()) {
-            'pgsql'  => "EXTRACT(MONTH FROM {$column})::int",
+            'pgsql' => "EXTRACT(MONTH FROM {$column})::int",
             'sqlite' => "CAST(strftime('%m', {$column}) AS INTEGER)",
-            default  => "MONTH({$column})",
+            default => "MONTH({$column})",
         };
     }
 }
