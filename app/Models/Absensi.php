@@ -15,6 +15,7 @@ class Absensi extends Model
 
         'tanggal',
         'status',
+        'catatan',
 
         'is_open',
     ];

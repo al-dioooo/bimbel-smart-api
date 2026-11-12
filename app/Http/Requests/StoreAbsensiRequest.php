@@ -25,6 +25,8 @@ class StoreAbsensiRequest extends FormRequest
             'absensi' => ['required', 'array', 'min:1'],
             'absensi.*.siswa_id' => ['required', 'integer', 'distinct', 'exists:siswa,id'],
             'absensi.*.status' => ['required', 'string', 'in:h,s,i,a,H,S,I,A'],
+            // REQ-044: an optional short note per siswa.
+            'absensi.*.catatan' => ['nullable', 'string', 'max:255'],
         ];
     }
 

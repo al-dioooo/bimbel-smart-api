@@ -97,6 +97,7 @@ class AbsensiController extends Controller
                     'siswa_id' => $row['siswa_id'],
                     'tanggal' => $tanggalJadwal,
                     'status' => strtolower($row['status']),
+                    'catatan' => $row['catatan'] ?? null,
                 ]);
             }
 

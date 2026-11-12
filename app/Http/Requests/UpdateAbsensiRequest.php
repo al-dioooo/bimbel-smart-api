@@ -19,6 +19,8 @@ class UpdateAbsensiRequest extends FormRequest
     {
         return [
             'status' => ['sometimes', 'required', 'string', 'in:h,s,i,a,H,S,I,A'],
+            // REQ-049: the admin may correct the note as well as the status.
+            'catatan' => ['sometimes', 'nullable', 'string', 'max:255'],
             'is_open' => ['sometimes', 'boolean'],
         ];
     }
