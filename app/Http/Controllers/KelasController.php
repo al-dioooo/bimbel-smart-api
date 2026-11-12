@@ -8,6 +8,7 @@ use App\Models\AturanGaji;
 use App\Models\Jadwal;
 use App\Models\Kelas;
 use App\Models\Siswa;
+use App\Support\UniqueViolation;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -61,6 +62,7 @@ class KelasController extends Controller
             ], 201);
         } catch (\Throwable $e) {
             DB::rollBack();
+            UniqueViolation::rethrow($e);
 
             return response()->json([
                 'message' => 'Failed to store kelas data.',
@@ -112,6 +114,7 @@ class KelasController extends Controller
             ], 200);
         } catch (\Throwable $e) {
             DB::rollBack();
+            UniqueViolation::rethrow($e);
 
             return response()->json([
                 'message' => 'Failed to update kelas data.',

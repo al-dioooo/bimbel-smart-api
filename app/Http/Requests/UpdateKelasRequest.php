@@ -2,8 +2,10 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Kelas;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Validator;
 
 class UpdateKelasRequest extends FormRequest
 {
@@ -30,6 +32,34 @@ class UpdateKelasRequest extends FormRequest
             'mentor_id' => ['required', 'sometimes', 'integer', 'exists:mentor,id'],
             'siswa' => ['sometimes', 'array'],
             'siswa.*' => ['integer', 'exists:siswa,id'],
+        ];
+    }
+
+    /** REQ-028: refuse a second kelas with the same nama and tingkat. */
+    public function after(): array
+    {
+        return [
+            function (Validator $validator) {
+                if ($validator->errors()->hasAny(['nama', 'tingkat'])) {
+                    return;
+                }
+
+                $kelas = $this->route('kelas');
+
+                $nama = (string) $this->input('nama', $kelas->nama);
+                $tingkat = (string) $this->input('tingkat', $kelas->tingkat);
+
+                // Only a changed name is checked, so a kelas that was already a
+                // duplicate before this rule can still get e.g. a new mentor.
+                $same = fn ($a, $b) => mb_strtolower(trim((string) $a)) === mb_strtolower(trim((string) $b));
+                if ($same($nama, $kelas->nama) && $same($tingkat, $kelas->tingkat)) {
+                    return;
+                }
+
+                if (Kelas::duplicateExists($nama, $tingkat, $kelas->id)) {
+                    $validator->errors()->add('nama', "Kelas {$nama} tingkat {$tingkat} sudah terdaftar.");
+                }
+            },
         ];
     }
 }

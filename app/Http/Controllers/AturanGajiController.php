@@ -7,6 +7,7 @@ use App\Http\Requests\UpdateAturanGajiRequest;
 use App\Models\Absensi;
 use App\Models\AturanGaji;
 use App\Models\Kelas;
+use App\Support\UniqueViolation;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -48,6 +49,7 @@ class AturanGajiController extends Controller
             ], 201);
         } catch (\Throwable $e) {
             DB::rollBack();
+            UniqueViolation::rethrow($e);
 
             return response()->json([
                 'message' => 'Failed to store aturan gaji data.',
@@ -94,6 +96,7 @@ class AturanGajiController extends Controller
             ], 200);
         } catch (\Throwable $e) {
             DB::rollBack();
+            UniqueViolation::rethrow($e);
 
             return response()->json([
                 'message' => 'Failed to update aturan gaji data.',

@@ -8,6 +8,7 @@ use App\Models\Kelas;
 use App\Models\Mentor;
 use App\Models\Notification;
 use App\Models\User;
+use App\Support\UniqueViolation;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -63,6 +64,7 @@ class MentorController extends Controller
             ], 201);
         } catch (\Throwable $e) {
             DB::rollBack();
+            UniqueViolation::rethrow($e);
 
             return response()->json([
                 'message' => 'Failed to store mentor data.',
@@ -125,6 +127,7 @@ class MentorController extends Controller
             ], 200);
         } catch (\Throwable $e) {
             DB::rollBack();
+            UniqueViolation::rethrow($e);
 
             return response()->json([
                 'message' => 'Failed to update mentor data.',
