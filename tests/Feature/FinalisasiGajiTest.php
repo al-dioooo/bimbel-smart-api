@@ -138,6 +138,29 @@ test('sessions without absensi need an explicit confirmation (UC-10 3a)', functi
     ($this->finalize)(['lanjutkan' => true])->assertCreated();
 });
 
+test('an incomplete session needs the confirmation too, by the reminders\' rule (round 2 review)', function () {
+    // Andi and Bela joined in January; on 14 September only Andi is recorded.
+    $this->f->k7a->siswa()->update(['tanggal_bergabung' => '2026-01-05 09:00:00']);
+    $this->f->jadwal($this->f->k7a, '2026-09-14', ['Andi' => 'h']);
+
+    expect($this->getJson('/api/report/gaji/periode/2026-09')->json('data.jadwal_belum_diabsen'))->toBe(1);
+    ($this->finalize)()->assertUnprocessable()->assertJsonValidationErrors(['lanjutkan' => 'Terdapat 1 sesi absensi yang belum terisi']);
+
+    // A student who joined after the session does not make it incomplete.
+    $this->f->siswa['Bela']->update(['tanggal_bergabung' => '2026-09-20 09:00:00']);
+    expect($this->getJson('/api/report/gaji/periode/2026-09')->json('data.jadwal_belum_diabsen'))->toBe(0);
+    ($this->finalize)()->assertCreated();
+});
+
+test('the gaji detail totals read a finalized month as stored', function () {
+    ($this->finalize)()->assertCreated();
+    $this->putJson("/api/kelas/{$this->f->k7a->id}", ['mentor_id' => $this->f->mSari->id])->assertOk();
+
+    $this->getJson("/api/report/gaji/{$this->f->mBudi->id}?bulan=2026-09")
+        ->assertJsonPath('total.total', fn ($v) => (float) $v === 110000.0)
+        ->assertJsonPath('total.bonus', fn ($v) => (float) $v === 50000.0);
+});
+
 test('only admins preview and finalize', function () {
     Sanctum::actingAs($this->f->budi);
 
