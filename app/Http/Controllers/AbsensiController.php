@@ -6,8 +6,10 @@ use App\Http\Requests\StoreAbsensiRequest;
 use App\Http\Requests\UpdateAbsensiRequest;
 use App\Models\Absensi;
 use App\Models\Jadwal;
+use App\Models\Kelas;
 use App\Models\PeriodeGaji;
 use App\Models\Siswa;
+use App\Support\UniqueViolation;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -92,9 +94,31 @@ class AbsensiController extends Controller
             ]);
         }
 
+        // REQ-071: a partly filled session may be completed, but only with
+        // students who had joined by the session date. Otherwise a siswa moved
+        // in today could be marked hadir on last month's sessions.
+        if (Absensi::where('jadwal_id', $jadwal->id)->exists()) {
+            $belumBergabung = Siswa::whereIn('id', $siswaIds)
+                ->whereDate('tanggal_bergabung', '>', $tanggalJadwal)
+                ->orderBy('nama')->pluck('nama');
+            if ($belumBergabung->isNotEmpty()) {
+                throw ValidationException::withMessages([
+                    'absensi' => 'Siswa belum bergabung pada tanggal jadwal ('.Carbon::parse($tanggalJadwal)->format('d-m-Y').'): '
+                        .$belumBergabung->implode(', ').'.',
+                ]);
+            }
+        }
+
         DB::beginTransaction();
 
         try {
+            // Again inside the transaction, where it holds the month's lock until commit.
+            PeriodeGaji::ensureOpen($tanggalJadwal, 'jadwal_id', 'absensi pada jadwal ini');
+
+            // Pairs with the lock in AturanGajiController::destroy: the tarif
+            // of this kelas cannot be deleted while this attendance is stored.
+            Kelas::whereKey($jadwal->kelas_id)->sharedLock()->first();
+
             foreach ($validated['absensi'] as $row) {
                 Absensi::create([
                     'jadwal_id' => $jadwal->id,
@@ -117,6 +141,12 @@ class AbsensiController extends Controller
             ], 201);
         } catch (\Throwable $e) {
             DB::rollBack();
+            if ($e instanceof ValidationException) {
+                throw $e;
+            }
+            // Two submissions for the same siswa at the same time: the unique
+            // index refuses the second one.
+            UniqueViolation::rethrow($e);
 
             return $this->serverError('Data absensi gagal disimpan. Silakan coba lagi.', $e);
         }
@@ -141,6 +171,9 @@ class AbsensiController extends Controller
         DB::beginTransaction();
 
         try {
+            // Again inside the transaction, where it holds the month's lock until commit.
+            PeriodeGaji::ensureOpen($absensi->jadwal?->tanggal ?? $absensi->tanggal, 'absensi', 'absensi ini');
+
             $validated = $request->validated();
             if (isset($validated['status'])) {
                 $validated['status'] = strtolower($validated['status']);
@@ -156,6 +189,9 @@ class AbsensiController extends Controller
             ], 200);
         } catch (\Throwable $e) {
             DB::rollBack();
+            if ($e instanceof ValidationException) {
+                throw $e;
+            }
 
             return $this->serverError('Data absensi gagal diperbarui. Silakan coba lagi.', $e);
         }
@@ -168,6 +204,9 @@ class AbsensiController extends Controller
         DB::beginTransaction();
 
         try {
+            // Again inside the transaction, where it holds the month's lock until commit.
+            PeriodeGaji::ensureOpen($absensi->jadwal?->tanggal ?? $absensi->tanggal, 'absensi', 'absensi ini');
+
             $absensi->delete();
 
             DB::commit();
@@ -177,6 +216,9 @@ class AbsensiController extends Controller
             ], 200);
         } catch (\Throwable $e) {
             DB::rollBack();
+            if ($e instanceof ValidationException) {
+                throw $e;
+            }
 
             return $this->serverError('Data absensi gagal dihapus. Silakan coba lagi.', $e);
         }

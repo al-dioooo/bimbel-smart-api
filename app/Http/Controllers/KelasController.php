@@ -8,6 +8,7 @@ use App\Models\AturanGaji;
 use App\Models\Jadwal;
 use App\Models\Kelas;
 use App\Models\Siswa;
+use App\Support\UniqueViolation;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -61,6 +62,7 @@ class KelasController extends Controller
             ], 201);
         } catch (\Throwable $e) {
             DB::rollBack();
+            UniqueViolation::rethrow($e);
 
             return $this->serverError('Data kelas gagal disimpan. Silakan coba lagi.', $e);
         }
@@ -109,6 +111,7 @@ class KelasController extends Controller
             ], 200);
         } catch (\Throwable $e) {
             DB::rollBack();
+            UniqueViolation::rethrow($e);
 
             return $this->serverError('Data kelas gagal diperbarui. Silakan coba lagi.', $e);
         }
@@ -138,6 +141,11 @@ class KelasController extends Controller
             ], 200);
         } catch (\Throwable $e) {
             DB::rollBack();
+
+            // A row inserted after the check above: the foreign key refuses it.
+            if ($this->isForeignKeyViolation($e)) {
+                throw ValidationException::withMessages(['kelas' => 'Kelas tidak dapat dihapus karena masih memiliki jadwal atau absensi.']);
+            }
 
             return $this->serverError('Data kelas gagal dihapus. Silakan coba lagi.', $e);
         }

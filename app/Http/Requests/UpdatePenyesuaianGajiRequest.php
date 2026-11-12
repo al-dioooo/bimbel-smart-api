@@ -18,7 +18,7 @@ class UpdatePenyesuaianGajiRequest extends FormRequest
             'mentor_id' => ['sometimes', 'required', 'integer', 'exists:mentor,id'],
             'bulan' => ['sometimes', 'required', 'regex:/^\d{4}-(0[1-9]|1[0-2])$/'],
             'jenis' => ['sometimes', 'required', 'in:'.implode(',', PenyesuaianGaji::JENIS)],
-            'nominal' => ['sometimes', 'required', 'numeric', 'min:1', 'max:9999999999999'],
+            'nominal' => ['sometimes', 'required', 'numeric', 'decimal:0,2', 'min:1', 'max:9999999999999'],
             'keterangan' => ['sometimes', 'nullable', 'string', 'max:255'],
         ];
     }

@@ -1,9 +1,14 @@
 <?php
 
+use App\Exports\TabelExport;
 use App\Models\PenyesuaianGaji;
 use App\Services\GajiCalculator;
+use App\Support\Laporan;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Validation\ValidationException;
 use Laravel\Sanctum\Sanctum;
+use PhpOffice\PhpSpreadsheet\Cell\Cell;
+use PhpOffice\PhpSpreadsheet\Cell\DefaultValueBinder;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use Tests\Support\BimbelFixture;
 
@@ -120,5 +125,89 @@ describe('export laporan gaji', function () {
 
         Sanctum::actingAs($this->f->budi);
         $this->getJson('/api/report/gaji/export?format=pdf')->assertForbidden();
+    });
+});
+
+describe('safe exports (review #38)', function () {
+    beforeEach(function () {
+        Sanctum::actingAs($this->f->admin);
+        // A mentor sets their own name; it lands in the admin's workbook.
+        $this->f->budi->update(['name' => '=HYPERLINK("http://contoh.test","klik")']);
+        $this->f->sari->update(['name' => 'Sari <b>Dewi</b> & Rekan']);
+    });
+
+    test('text that looks like a formula is written as text, numbers stay numbers', function () {
+        $res = $this->get('/api/report/gaji/export?format=xlsx&bulan=2026-09')->assertOk();
+        $path = tempnam(sys_get_temp_dir(), 'xlsx');
+        file_put_contents($path, $res->streamedContent());
+        $sheet = IOFactory::load($path)->getActiveSheet();
+        unlink($path);
+
+        expect($sheet->getCell('A6')->getValue())->toBe('=HYPERLINK("http://contoh.test","klik")')
+            ->and($sheet->getCell('A6')->getDataType())->toBe('s')
+            ->and($sheet->getCell('A6')->isFormula())->toBeFalse()
+            ->and($sheet->getCell('D6')->getDataType())->toBe('n')
+            ->and($sheet->getCell('G6')->getValue())->toEqual(100000);
+    });
+
+    test('the binder is reset after the export and empty cells stay empty', function () {
+        $this->get('/api/report/gaji/export?format=xlsx&bulan=2026-09')->assertOk()->streamedContent();
+
+        expect(Cell::getValueBinder())->toBeInstanceOf(DefaultValueBinder::class)
+            ->not->toBeInstanceOf(TabelExport::class);
+    });
+
+    test('names with < and & are escaped in the PDFs', function () {
+        $slip = app(GajiCalculator::class)->slip($this->f->mSari->id, 'Sari <b>Dewi</b> & Rekan', '2026-09');
+        expect(view('pdf.slip-gaji', $slip + ['dicetak' => 'x'])->render())
+            ->toContain('Sari &lt;b&gt;Dewi&lt;/b&gt; &amp; Rekan')
+            ->not->toContain('<b>Dewi</b>');
+
+        $this->get("/api/report/gaji/{$this->f->mSari->id}?format=pdf&bulan=2026-09")->assertOk();
+        $this->get('/api/report/gaji/export?format=pdf&bulan=2026-09')->assertOk();
+    });
+
+    test('dompdf cannot fetch remote files or run PHP', function () {
+        $options = Laporan::pdf('pdf.tabel', ['judul' => 'x', 'keterangan' => [], 'headings' => [], 'rows' => [], 'total' => null, 'numeric' => []])
+            ->getDomPDF()->getOptions();
+
+        expect($options->getIsRemoteEnabled())->toBeFalse()
+            ->and($options->getIsPhpEnabled())->toBeFalse()
+            ->and($options->getChroot())->toBe([resource_path('views')]);
+    });
+
+    test('an export is refused beyond its row limit instead of rendering without end', function () {
+        $rows = array_fill(0, Laporan::MAX_ROWS['pdf'] + 1, ['a', 1]);
+
+        expect(fn () => Laporan::table('pdf', 'x', 'X', [], ['A', 'B'], $rows))
+            ->toThrow(ValidationException::class, 'lebih dari 1000 baris');
+        expect(Laporan::limit('pdf'))->toBe(1001)->and(Laporan::limit('xlsx'))->toBe(20001);
+    });
+});
+
+describe('a finalized month after its sources change (review #37/#38)', function () {
+    beforeEach(function () {
+        Sanctum::actingAs($this->f->admin);
+        $this->postJson('/api/report/gaji', ['bulan' => '2026-09'])->assertCreated();
+        $this->putJson("/api/aturan-gaji/{$this->f->aturan7a->id}", ['tarif' => 35000])->assertOk();
+        $this->putJson("/api/kelas/{$this->f->k7a->id}", ['mentor_id' => $this->f->mSari->id])->assertOk();
+    });
+
+    test('the slip keeps the stored amounts', function () {
+        $slip = app(GajiCalculator::class)->slip($this->f->mBudi->id, 'Budi Santoso', '2026-09');
+
+        expect($slip['periode']['status'])->toBe('final')
+            ->and($slip['mentor'])->toMatchArray(['gaji_pokok' => 60000.0, 'total' => 100000.0])
+            ->and($slip['mentor']['rincian'][0])->toMatchArray(['kelas' => 'Matematika 7A', 'tarif' => 30000.0, 'nominal' => 60000.0]);
+    });
+
+    test('the export keeps the stored amounts', function () {
+        $rows = ($this->sheet)($this->get('/api/report/gaji/export?format=xlsx&bulan=2026-09')->assertOk());
+
+        expect(array_slice($rows, 5))->toEqual([
+            ['Budi Santoso', 'September 2026', 2, 60000, 50000, 10000, 100000, 'Final'],
+            ['Sari Dewi', 'September 2026', 1, 40000, 0, 0, 40000, 'Final'],
+            ['Total', null, 3, 100000, 50000, 10000, 140000, null],
+        ]);
     });
 });

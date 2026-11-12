@@ -3,9 +3,11 @@
 namespace App\Providers;
 
 use App\Models\User;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Sanctum\PersonalAccessToken;
 use Laravel\Sanctum\Sanctum;
@@ -31,6 +33,13 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Lupa kata sandi: per visitor IP (see TrustFrontendClientIp) and per
+        // email, so one address cannot be flooded from many IPs.
+        RateLimiter::for('lupa-sandi', fn (Request $request) => [
+            Limit::perMinute(6)->by('ip:'.$request->ip()),
+            Limit::perMinute(5)->by('email:'.mb_strtolower(trim((string) $request->input('email')))),
+        ]);
+
         Sanctum::authenticateAccessTokensUsing(
             fn (PersonalAccessToken $token, bool $isValid) => $isValid && ! self::expireIdleToken($token)
         );

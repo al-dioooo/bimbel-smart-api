@@ -26,9 +26,9 @@ use Illuminate\Support\Facades\DB;
  *
  * A finalized month (UC-10 step 9) is never recomputed: it is read from the
  * report_gaji snapshot, so later changes such as moving a kelas to another
- * mentor cannot rewrite a closed payroll. A month is swapped for its snapshot
- * when the filters cover the whole month; a from/to range that cuts through a
- * finalized month shows the live figures for the days it covers.
+ * mentor or a new tarif cannot rewrite a closed payroll. Every finalized month
+ * the filters touch is swapped for its whole stored month, also when a
+ * from/to range only cuts through it (as adjustments already count per month).
  *
  * Filters, all optional: mentor_id, search (mentor name), bulan (YYYY-MM),
  * from and to (Y-m-d, together).
@@ -120,25 +120,26 @@ class GajiCalculator
      * Everything UC-10 shows for one month: per mentor the sessions, tarif,
      * adjustments and total, the grand total, and how many past sessions of
      * the month still have no absensi (UC-10 3a). A finalized month comes
-     * from its snapshot.
+     * from its snapshot. With $mentorId only that mentor is computed.
      */
-    public function periode(string $bulan): array
+    public function periode(string $bulan, ?int $mentorId = null): array
     {
         $periode = PeriodeGaji::with('finalizer')->whereDate('periode', PenyesuaianGaji::periodeOf($bulan))->first();
 
         $mentor = $periode
-            ? $periode->reports()->orderBy('mentor_nama')->get()->map(fn (ReportGaji $report) => [
-                'mentor_id' => $report->mentor_id,
-                'mentor' => $report->mentor_nama,
-                'total_kehadiran' => $report->jumlah_kehadiran,
-                'gaji_pokok' => $report->gaji_pokok,
-                'bonus' => $report->bonus,
-                'potongan' => $report->potongan,
-                'total' => $report->total_gaji,
-                'rincian' => $report->rincian['kelas'] ?? [],
-                'penyesuaian' => $report->rincian['penyesuaian'] ?? [],
-            ])
-            : $this->rekap(['bulan' => $bulan])->orderBy('mentor')->get()->map(fn ($row) => [
+            ? $periode->reports()->when($mentorId, fn ($query) => $query->where('mentor_id', $mentorId))
+                ->orderBy('mentor_nama')->get()->map(fn (ReportGaji $report) => [
+                    'mentor_id' => $report->mentor_id,
+                    'mentor' => $report->mentor_nama,
+                    'total_kehadiran' => $report->jumlah_kehadiran,
+                    'gaji_pokok' => $report->gaji_pokok,
+                    'bonus' => $report->bonus,
+                    'potongan' => $report->potongan,
+                    'total' => $report->total_gaji,
+                    'rincian' => $report->rincian['kelas'] ?? [],
+                    'penyesuaian' => $report->rincian['penyesuaian'] ?? [],
+                ])
+            : $this->rekap(array_filter(['bulan' => $bulan, 'mentor_id' => $mentorId]))->orderBy('mentor')->get()->map(fn ($row) => [
                 'mentor_id' => (int) $row->mentor_id,
                 'mentor' => $row->mentor,
                 'total_kehadiran' => (int) $row->total_kehadiran_murid,
@@ -186,7 +187,9 @@ class GajiCalculator
      */
     public function slip(int $mentorId, string $mentorNama, string $bulan): array
     {
-        $periode = $this->periode($bulan);
+        // Only this mentor is computed; the month totals are not on the slip.
+        $periode = $this->periode($bulan, $mentorId);
+        unset($periode['total']);
         $mentor = collect($periode['mentor'])->firstWhere('mentor_id', $mentorId) ?? [
             'mentor_id' => $mentorId, 'mentor' => $mentorNama, 'total_kehadiran' => 0,
             'gaji_pokok' => 0.0, 'bonus' => 0.0, 'potongan' => 0.0, 'total' => 0.0, 'rincian' => [], 'penyesuaian' => [],
@@ -211,7 +214,7 @@ class GajiCalculator
     }
 
     /**
-     * Finalized months fully covered by the filters, as first-day dates.
+     * Finalized months the filters touch, as first-day dates.
      *
      * @return array<int, string>
      */
@@ -225,7 +228,7 @@ class GajiCalculator
             ->pluck('periode')
             ->map(fn ($periode) => Carbon::parse($periode)->toDateString())
             ->filter(fn (string $periode) => ! ($from && $to)
-                || ($periode >= $from && Carbon::parse($periode)->endOfMonth()->toDateString() <= $to))
+                || ($periode <= $to && Carbon::parse($periode)->endOfMonth()->toDateString() >= $from))
             ->values()
             ->all();
     }

@@ -6,6 +6,8 @@ use App\Models\Jadwal;
 use App\Models\Kelas;
 use App\Models\Mentor;
 use App\Models\Siswa;
+use App\Services\GajiCalculator;
+use App\Support\Sql;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -19,7 +21,7 @@ class DashboardController extends Controller
      * to the current month. Optional ?mentor_id= limits every figure to the
      * kelas that mentor teaches.
      */
-    public function stats(Request $request)
+    public function stats(Request $request, GajiCalculator $gaji)
     {
         $from = $request->query('from')
             ? Carbon::parse($request->query('from'))->startOfDay()
@@ -55,14 +57,15 @@ class DashboardController extends Controller
         $alpa = (int) ($breakdown->alpa ?? 0);
         $total = (int) ($breakdown->total ?? 0);
 
-        // Earnings mirror ReportGaji: each `hadir` earns that kelas's tarif.
-        $penghasilan = (float) DB::table('absensi')
-            ->join('jadwal', 'jadwal.id', '=', 'absensi.jadwal_id')
-            ->leftJoin('aturan_gaji', 'aturan_gaji.kelas_id', '=', 'jadwal.kelas_id')
-            ->where('absensi.status', 'h')
-            ->whereBetween('absensi.tanggal', [$from->toDateString(), $to->toDateString()])
-            ->when($mentorId, $mentorJadwal)
-            ->sum('aturan_gaji.tarif');
+        // The same figure as the laporan gaji and the slip: pokok + bonus -
+        // potongan, finalized months as stored.
+        $penghasilan = (float) DB::query()
+            ->fromSub($gaji->rekap(array_filter([
+                'from' => $from->toDateString(),
+                'to' => $to->toDateString(),
+                'mentor_id' => $mentorId,
+            ])), 'gaji')
+            ->sum('nominal');
 
         return response()->json([
             'message' => 'Data dashboard berhasil diambil.',
@@ -92,8 +95,8 @@ class DashboardController extends Controller
     }
 
     /**
-     * UC-16: past sessions of the mentor's kelas that have students but no
-     * attendance at all (2b), and today's sessions (2a). Both are empty when
+     * UC-16: past sessions of the mentor's kelas whose attendance is missing
+     * or incomplete (2b), and today's sessions (2a). Both are empty when
      * neither applies, so the dashboard shows nothing (2a alternative).
      *
      * @return array{absensi_belum_diisi: array<int, array<string, mixed>>, jumlah_absensi_belum_diisi: int, jadwal_hari_ini: array<int, array<string, mixed>>}
@@ -112,12 +115,30 @@ class DashboardController extends Controller
             'materi' => $jadwal->materi,
         ];
 
+        // REQ-071: "absensi yang perlu dicatat atau absensi yang belum
+        // lengkap". Empty: no record yet while the kelas has students.
+        // Incomplete: some records, but a student of the kelas who had joined
+        // by the session date has none (the same students the absensi form
+        // still accepts on a partly filled session).
         $belumDiisi = Jadwal::query()
             ->with('kelas')
+            ->withCount('absensi')
             ->tap($milikMentor)
-            ->whereHas('kelas.siswa')
             ->whereDate('tanggal', '<', $today)
-            ->doesntHave('absensi');
+            // A finalized month can no longer be filled (UC-10 step 9).
+            ->whereNotExists(fn ($final) => $final->selectRaw('1')->from('periode_gaji')
+                ->whereRaw(Sql::year('periode_gaji.periode').' = '.Sql::year('jadwal.tanggal'))
+                ->whereRaw(Sql::month('periode_gaji.periode').' = '.Sql::month('jadwal.tanggal')))
+            ->where(fn ($q) => $q
+                ->where(fn ($kosong) => $kosong->doesntHave('absensi')->whereHas('kelas.siswa'))
+                ->orWhere(fn ($sebagian) => $sebagian->has('absensi')->whereExists(fn ($siswa) => $siswa
+                    ->selectRaw('1')->from('siswa')
+                    ->whereColumn('siswa.kelas_id', 'jadwal.kelas_id')
+                    ->whereRaw('DATE(siswa.tanggal_bergabung) <= DATE(jadwal.tanggal)')
+                    ->whereNotExists(fn ($absensi) => $absensi
+                        ->selectRaw('1')->from('absensi')
+                        ->whereColumn('absensi.jadwal_id', 'jadwal.id')
+                        ->whereColumn('absensi.siswa_id', 'siswa.id')))));
 
         $hariIni = Jadwal::query()
             ->with('kelas')
@@ -130,7 +151,8 @@ class DashboardController extends Controller
         return [
             'jumlah_absensi_belum_diisi' => (clone $belumDiisi)->count(),
             // Newest first; the dashboard links to the absensi page for the rest.
-            'absensi_belum_diisi' => $belumDiisi->orderByDesc('tanggal')->orderByDesc('waktu_mulai')->limit(10)->get()->map($ringkas)->all(),
+            'absensi_belum_diisi' => $belumDiisi->orderByDesc('tanggal')->orderByDesc('waktu_mulai')->limit(10)->get()
+                ->map(fn (Jadwal $jadwal) => $ringkas($jadwal) + ['belum_lengkap' => $jadwal->absensi_count > 0])->all(),
             'jadwal_hari_ini' => $hariIni->map(fn (Jadwal $jadwal) => $ringkas($jadwal) + [
                 'sudah_diabsen' => $jadwal->absensi_count > 0,
             ])->all(),
