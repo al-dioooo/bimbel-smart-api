@@ -1,11 +1,14 @@
 <?php
 
+use App\Exports\TabelExport;
 use App\Models\PenyesuaianGaji;
 use App\Services\GajiCalculator;
 use App\Support\Laporan;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Validation\ValidationException;
 use Laravel\Sanctum\Sanctum;
+use PhpOffice\PhpSpreadsheet\Cell\Cell;
+use PhpOffice\PhpSpreadsheet\Cell\DefaultValueBinder;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use Tests\Support\BimbelFixture;
 
@@ -145,6 +148,13 @@ describe('safe exports (review #38)', function () {
             ->and($sheet->getCell('A6')->isFormula())->toBeFalse()
             ->and($sheet->getCell('D6')->getDataType())->toBe('n')
             ->and($sheet->getCell('G6')->getValue())->toEqual(100000);
+    });
+
+    test('the binder is reset after the export and empty cells stay empty', function () {
+        $this->get('/api/report/gaji/export?format=xlsx&bulan=2026-09')->assertOk()->streamedContent();
+
+        expect(Cell::getValueBinder())->toBeInstanceOf(DefaultValueBinder::class)
+            ->not->toBeInstanceOf(TabelExport::class);
     });
 
     test('names with < and & are escaped in the PDFs', function () {
