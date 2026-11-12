@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Jadwal;
 use App\Models\Kelas;
 use App\Models\Mentor;
 use App\Models\Siswa;
@@ -74,6 +75,8 @@ class DashboardController extends Controller
                 // REQ-067. A mentor sees the kelas they teach; the mentor count is admin-only.
                 'total_kelas' => Kelas::when($mentorId, fn ($query) => $query->where('mentor_id', $mentorId))->count(),
                 ...($mentorId ? [] : ['total_mentor' => Mentor::count()]),
+                // UC-16, REQ-070, REQ-071: reminders for the mentor on login.
+                ...($mentorId ? $this->pengingatAbsensi((int) $mentorId) : []),
                 'total_kehadiran' => $hadir,
                 'penghasilan' => $penghasilan,
                 'persentase_kehadiran' => $total > 0 ? round(($hadir / $total) * 100) : 0,
@@ -86,5 +89,66 @@ class DashboardController extends Controller
                 ],
             ],
         ]);
+    }
+
+    /**
+     * UC-16: past sessions of the mentor's kelas whose attendance is missing
+     * or incomplete (2b), and today's sessions (2a). Both are empty when
+     * neither applies, so the dashboard shows nothing (2a alternative).
+     *
+     * @return array{absensi_belum_diisi: array<int, array<string, mixed>>, jumlah_absensi_belum_diisi: int, jadwal_hari_ini: array<int, array<string, mixed>>}
+     */
+    private function pengingatAbsensi(int $mentorId): array
+    {
+        $today = Carbon::today()->toDateString();
+        $milikMentor = fn ($query) => $query->whereHas('kelas', fn ($kelas) => $kelas->where('mentor_id', $mentorId));
+        $ringkas = fn (Jadwal $jadwal) => [
+            'jadwal_id' => $jadwal->id,
+            'kelas_id' => $jadwal->kelas_id,
+            'kelas' => $jadwal->kelas?->nama,
+            'tanggal' => Carbon::parse($jadwal->tanggal)->toDateString(),
+            'waktu_mulai' => substr((string) $jadwal->waktu_mulai, 0, 5),
+            'waktu_selesai' => substr((string) $jadwal->waktu_selesai, 0, 5),
+            'materi' => $jadwal->materi,
+        ];
+
+        // REQ-071: "absensi yang perlu dicatat atau absensi yang belum
+        // lengkap". Empty: no record yet while the kelas has students.
+        // Incomplete: some records, but a student of the kelas who had joined
+        // by the session date has none (the same students the absensi form
+        // still accepts on a partly filled session).
+        $belumDiisi = Jadwal::query()
+            ->with('kelas')
+            ->withCount('absensi')
+            ->tap($milikMentor)
+            ->whereDate('tanggal', '<', $today)
+            ->where(fn ($q) => $q
+                ->where(fn ($kosong) => $kosong->doesntHave('absensi')->whereHas('kelas.siswa'))
+                ->orWhere(fn ($sebagian) => $sebagian->has('absensi')->whereExists(fn ($siswa) => $siswa
+                    ->selectRaw('1')->from('siswa')
+                    ->whereColumn('siswa.kelas_id', 'jadwal.kelas_id')
+                    ->whereRaw('DATE(siswa.tanggal_bergabung) <= DATE(jadwal.tanggal)')
+                    ->whereNotExists(fn ($absensi) => $absensi
+                        ->selectRaw('1')->from('absensi')
+                        ->whereColumn('absensi.jadwal_id', 'jadwal.id')
+                        ->whereColumn('absensi.siswa_id', 'siswa.id')))));
+
+        $hariIni = Jadwal::query()
+            ->with('kelas')
+            ->withCount('absensi')
+            ->tap($milikMentor)
+            ->whereDate('tanggal', $today)
+            ->orderBy('waktu_mulai')
+            ->get();
+
+        return [
+            'jumlah_absensi_belum_diisi' => (clone $belumDiisi)->count(),
+            // Newest first; the dashboard links to the absensi page for the rest.
+            'absensi_belum_diisi' => $belumDiisi->orderByDesc('tanggal')->orderByDesc('waktu_mulai')->limit(10)->get()
+                ->map(fn (Jadwal $jadwal) => $ringkas($jadwal) + ['belum_lengkap' => $jadwal->absensi_count > 0])->all(),
+            'jadwal_hari_ini' => $hariIni->map(fn (Jadwal $jadwal) => $ringkas($jadwal) + [
+                'sudah_diabsen' => $jadwal->absensi_count > 0,
+            ])->all(),
+        ];
     }
 }

@@ -36,6 +36,11 @@ class Jadwal extends Model
         return $this->belongsTo(Kelas::class);
     }
 
+    public function absensi()
+    {
+        return $this->hasMany(Absensi::class);
+    }
+
     /**
      * Times are stored as H:i:s whatever the client sent (the API accepts H:i),
      * so they compare correctly as text on SQLite as well as on PostgreSQL.
