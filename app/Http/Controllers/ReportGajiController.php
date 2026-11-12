@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\ReportFilterRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -60,7 +61,7 @@ class ReportGajiController extends Controller
         return $query;
     }
 
-    public function index(Request $request)
+    public function index(ReportFilterRequest $request)
     {
         $allowedSorts = ['tahun', 'bulan', 'mentor', 'total_kehadiran_murid', 'nominal'];
         $orderBy = in_array($request->query('order_by'), $allowedSorts, true)
@@ -88,7 +89,7 @@ class ReportGajiController extends Controller
     /**
      * Per-kelas breakdown behind one mentor's monthly total.
      */
-    public function show(Request $request, $mentorId)
+    public function show(ReportFilterRequest $request, $mentorId)
     {
         $this->authorizeOwner($mentorId);
 
@@ -118,6 +119,11 @@ class ReportGajiController extends Controller
         if ($bulan && preg_match('/^(\d{4})-(\d{2})$/', $bulan, $m)) {
             $query->whereYear('jadwal.tanggal', (int) $m[1])
                 ->whereMonth('jadwal.tanggal', (int) $m[2]);
+        }
+
+        if (($from = $request->query('from')) && ($to = $request->query('to'))) {
+            $query->whereDate('jadwal.tanggal', '>=', $from)
+                ->whereDate('jadwal.tanggal', '<=', $to);
         }
 
         $data = $this->paginate(

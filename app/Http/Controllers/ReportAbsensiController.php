@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
+use App\Http\Requests\ReportFilterRequest;
 use Illuminate\Support\Facades\DB;
 
 class ReportAbsensiController extends Controller
@@ -13,7 +13,7 @@ class ReportAbsensiController extends Controller
      * There is no `report_absensi` table (the model pointed at one that was
      * never migrated), so this is derived from `absensi` on read.
      */
-    public function index(Request $request)
+    public function index(ReportFilterRequest $request)
     {
         $query = DB::table('absensi')
             ->join('jadwal', 'jadwal.id', '=', 'absensi.jadwal_id')
@@ -55,6 +55,12 @@ class ReportAbsensiController extends Controller
                 ->whereDate('absensi.tanggal', '<=', $to);
         }
 
+        // ?bulan=YYYY-MM (validated by ReportFilterRequest)
+        if ($bulan = $request->query('bulan')) {
+            [$tahun, $nomor] = array_map('intval', explode('-', $bulan));
+            $query->whereYear('absensi.tanggal', $tahun)->whereMonth('absensi.tanggal', $nomor);
+        }
+
         $allowedSorts = ['tahun', 'bulan', 'kelas', 'hadir', 'sakit', 'izin', 'alpa'];
         $orderBy = in_array($request->query('order_by'), $allowedSorts, true)
             ? $request->query('order_by')
@@ -78,7 +84,7 @@ class ReportAbsensiController extends Controller
     /**
      * Per-siswa breakdown for one kelas.
      */
-    public function show(Request $request, $kelasId)
+    public function show(ReportFilterRequest $request, $kelasId)
     {
         $query = DB::table('absensi')
             ->join('jadwal', 'jadwal.id', '=', 'absensi.jadwal_id')
@@ -103,6 +109,12 @@ class ReportAbsensiController extends Controller
         if (($from = $request->query('from')) && ($to = $request->query('to'))) {
             $query->whereDate('absensi.tanggal', '>=', $from)
                 ->whereDate('absensi.tanggal', '<=', $to);
+        }
+
+        // ?bulan=YYYY-MM (validated by ReportFilterRequest)
+        if ($bulan = $request->query('bulan')) {
+            [$tahun, $nomor] = array_map('intval', explode('-', $bulan));
+            $query->whereYear('absensi.tanggal', $tahun)->whereMonth('absensi.tanggal', $nomor);
         }
 
         $kelas = DB::table('kelas')
