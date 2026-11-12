@@ -198,7 +198,10 @@ class GajiCalculator
         ];
     }
 
-    /** UC-10 3a: sessions of the month up to today with students but no absensi. */
+    /**
+     * UC-10 3a: sessions of the month up to today whose attendance is missing
+     * or incomplete, by the same rule as the mentor's reminders.
+     */
     public function jadwalBelumDiabsen(string $bulan): int
     {
         [$year, $month] = array_map('intval', explode('-', $bulan));
@@ -207,8 +210,7 @@ class GajiCalculator
             ->whereYear('tanggal', $year)
             ->whereMonth('tanggal', $month)
             ->whereDate('tanggal', '<=', Carbon::today()->toDateString())
-            ->whereHas('kelas.siswa')
-            ->doesntHave('absensi')
+            ->absensiBelumLengkap()
             ->count();
     }
 
