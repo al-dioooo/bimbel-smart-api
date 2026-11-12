@@ -51,10 +51,7 @@ class NotificationController extends Controller
         } catch (\Throwable $e) {
             DB::rollBack();
 
-            return response()->json([
-                'message' => 'Data notifikasi gagal disimpan. Silakan coba lagi.',
-                'error' => $e->getMessage(),
-            ], 500);
+            return $this->serverError('Data notifikasi gagal disimpan. Silakan coba lagi.', $e);
         }
     }
 
@@ -97,10 +94,7 @@ class NotificationController extends Controller
         } catch (\Throwable $e) {
             DB::rollBack();
 
-            return response()->json([
-                'message' => 'Data notifikasi gagal diperbarui. Silakan coba lagi.',
-                'error' => $e->getMessage(),
-            ], 500);
+            return $this->serverError('Data notifikasi gagal diperbarui. Silakan coba lagi.', $e);
         }
     }
 
@@ -124,10 +118,7 @@ class NotificationController extends Controller
         } catch (\Throwable $e) {
             DB::rollBack();
 
-            return response()->json([
-                'message' => 'Data notifikasi gagal dihapus. Silakan coba lagi.',
-                'error' => $e->getMessage(),
-            ], 500);
+            return $this->serverError('Data notifikasi gagal dihapus. Silakan coba lagi.', $e);
         }
     }
 

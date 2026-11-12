@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Support\Sql;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Foundation\Validation\ValidatesRequests;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Pagination\AbstractPaginator;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
@@ -47,6 +48,20 @@ abstract class Controller
             403,
             'Anda tidak memiliki akses ke data ini.'
         );
+    }
+
+    /**
+     * A failed write: 500 with a user-facing message. The driver error (often
+     * the SQL, with bound values) is logged, and only returned while debugging.
+     */
+    protected function serverError(string $message, \Throwable $e): JsonResponse
+    {
+        report($e);
+
+        return response()->json(array_filter([
+            'message' => $message,
+            'error' => config('app.debug') ? $e->getMessage() : null,
+        ]), 500);
     }
 
     /** Applies $fn to every row of a paginate() result, paginated or not. */

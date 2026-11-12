@@ -46,10 +46,7 @@ class SiswaController extends Controller
         } catch (\Throwable $e) {
             DB::rollBack();
 
-            return response()->json([
-                'message' => 'Data siswa gagal disimpan. Silakan coba lagi.',
-                'error' => $e->getMessage(),
-            ], 500);
+            return $this->serverError('Data siswa gagal disimpan. Silakan coba lagi.', $e);
         }
     }
 
@@ -85,10 +82,7 @@ class SiswaController extends Controller
         } catch (\Throwable $e) {
             DB::rollBack();
 
-            return response()->json([
-                'message' => 'Data siswa gagal diperbarui. Silakan coba lagi.',
-                'error' => $e->getMessage(),
-            ], 500);
+            return $this->serverError('Data siswa gagal diperbarui. Silakan coba lagi.', $e);
         }
     }
 
@@ -117,10 +111,7 @@ class SiswaController extends Controller
         } catch (\Throwable $e) {
             DB::rollBack();
 
-            return response()->json([
-                'message' => 'Data siswa gagal dihapus. Silakan coba lagi.',
-                'error' => $e->getMessage(),
-            ], 500);
+            return $this->serverError('Data siswa gagal dihapus. Silakan coba lagi.', $e);
         }
     }
 }

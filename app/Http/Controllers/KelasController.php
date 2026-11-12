@@ -62,10 +62,7 @@ class KelasController extends Controller
         } catch (\Throwable $e) {
             DB::rollBack();
 
-            return response()->json([
-                'message' => 'Data kelas gagal disimpan. Silakan coba lagi.',
-                'error' => $e->getMessage(),
-            ], 500);
+            return $this->serverError('Data kelas gagal disimpan. Silakan coba lagi.', $e);
         }
     }
 
@@ -113,10 +110,7 @@ class KelasController extends Controller
         } catch (\Throwable $e) {
             DB::rollBack();
 
-            return response()->json([
-                'message' => 'Data kelas gagal diperbarui. Silakan coba lagi.',
-                'error' => $e->getMessage(),
-            ], 500);
+            return $this->serverError('Data kelas gagal diperbarui. Silakan coba lagi.', $e);
         }
     }
 
@@ -145,10 +139,7 @@ class KelasController extends Controller
         } catch (\Throwable $e) {
             DB::rollBack();
 
-            return response()->json([
-                'message' => 'Data kelas gagal dihapus. Silakan coba lagi.',
-                'error' => $e->getMessage(),
-            ], 500);
+            return $this->serverError('Data kelas gagal dihapus. Silakan coba lagi.', $e);
         }
     }
 }

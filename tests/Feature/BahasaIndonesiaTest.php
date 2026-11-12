@@ -1,6 +1,8 @@
 <?php
 
+use App\Models\Siswa;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
 use Tests\Support\BimbelFixture;
 
@@ -65,3 +67,15 @@ test('framework errors are Indonesian too', function () {
     $this->getJson('/api/tidak-ada')->assertNotFound()->assertJsonPath('message', 'Alamat tidak ditemukan.');
     $this->putJson('/api/me')->assertStatus(405)->assertJsonPath('message', 'Metode permintaan tidak didukung untuk alamat ini.');
 });
+
+test('a failed write never shows the SQL error outside debug mode', function () {
+    config(['app.debug' => false]);
+    Sanctum::actingAs($this->f->admin);
+    // Make the insert fail inside the transaction.
+    DB::statement('CREATE TRIGGER uji_gagal BEFORE INSERT ON siswa BEGIN SELECT RAISE(ABORT, \'select * from users\'); END;');
+
+    $res = $this->postJson('/api/siswa', ['nama' => 'Citra'])->assertStatus(500);
+
+    expect($res->json())->toBe(['message' => 'Data siswa gagal disimpan. Silakan coba lagi.'])
+        ->and(Siswa::where('nama', 'Citra')->exists())->toBeFalse();
+})->skip(fn () => DB::connection()->getDriverName() !== 'sqlite', 'uses a SQLite trigger');

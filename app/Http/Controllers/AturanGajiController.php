@@ -57,10 +57,7 @@ class AturanGajiController extends Controller
         } catch (\Throwable $e) {
             DB::rollBack();
 
-            return response()->json([
-                'message' => 'Data aturan gaji gagal disimpan. Silakan coba lagi.',
-                'error' => $e->getMessage(),
-            ], 500);
+            return $this->serverError('Data aturan gaji gagal disimpan. Silakan coba lagi.', $e);
         }
     }
 
@@ -106,10 +103,7 @@ class AturanGajiController extends Controller
         } catch (\Throwable $e) {
             DB::rollBack();
 
-            return response()->json([
-                'message' => 'Data aturan gaji gagal diperbarui. Silakan coba lagi.',
-                'error' => $e->getMessage(),
-            ], 500);
+            return $this->serverError('Data aturan gaji gagal diperbarui. Silakan coba lagi.', $e);
         }
     }
 
@@ -143,10 +137,7 @@ class AturanGajiController extends Controller
         } catch (\Throwable $e) {
             DB::rollBack();
 
-            return response()->json([
-                'message' => 'Data aturan gaji gagal dihapus. Silakan coba lagi.',
-                'error' => $e->getMessage(),
-            ], 500);
+            return $this->serverError('Data aturan gaji gagal dihapus. Silakan coba lagi.', $e);
         }
     }
 }

@@ -65,10 +65,7 @@ class MentorController extends Controller
         } catch (\Throwable $e) {
             DB::rollBack();
 
-            return response()->json([
-                'message' => 'Data mentor gagal disimpan. Silakan coba lagi.',
-                'error' => $e->getMessage(),
-            ], 500);
+            return $this->serverError('Data mentor gagal disimpan. Silakan coba lagi.', $e);
         }
     }
 
@@ -121,10 +118,7 @@ class MentorController extends Controller
         } catch (\Throwable $e) {
             DB::rollBack();
 
-            return response()->json([
-                'message' => 'Data mentor gagal diperbarui. Silakan coba lagi.',
-                'error' => $e->getMessage(),
-            ], 500);
+            return $this->serverError('Data mentor gagal diperbarui. Silakan coba lagi.', $e);
         }
     }
 
@@ -167,10 +161,7 @@ class MentorController extends Controller
         } catch (\Throwable $e) {
             DB::rollBack();
 
-            return response()->json([
-                'message' => 'Data mentor gagal dihapus. Silakan coba lagi.',
-                'error' => $e->getMessage(),
-            ], 500);
+            return $this->serverError('Data mentor gagal dihapus. Silakan coba lagi.', $e);
         }
     }
 }

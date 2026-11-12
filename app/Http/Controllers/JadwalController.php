@@ -46,10 +46,7 @@ class JadwalController extends Controller
         } catch (\Throwable $e) {
             DB::rollBack();
 
-            return response()->json([
-                'message' => 'Data jadwal gagal disimpan. Silakan coba lagi.',
-                'error' => $e->getMessage(),
-            ], 500);
+            return $this->serverError('Data jadwal gagal disimpan. Silakan coba lagi.', $e);
         }
     }
 
@@ -91,10 +88,7 @@ class JadwalController extends Controller
         } catch (\Throwable $e) {
             DB::rollBack();
 
-            return response()->json([
-                'message' => 'Data jadwal gagal diperbarui. Silakan coba lagi.',
-                'error' => $e->getMessage(),
-            ], 500);
+            return $this->serverError('Data jadwal gagal diperbarui. Silakan coba lagi.', $e);
         }
     }
 
@@ -125,10 +119,7 @@ class JadwalController extends Controller
         } catch (\Throwable $e) {
             DB::rollBack();
 
-            return response()->json([
-                'message' => 'Data jadwal gagal dihapus. Silakan coba lagi.',
-                'error' => $e->getMessage(),
-            ], 500);
+            return $this->serverError('Data jadwal gagal dihapus. Silakan coba lagi.', $e);
         }
     }
 }
