@@ -84,6 +84,7 @@ class ReportAbsensiController extends Controller
 
         $rows = $this->rekapQuery($request)
             ->orderByDesc('tahun')->orderByDesc('bulan')->orderBy('kelas')
+            ->limit(Laporan::limit($format))
             ->get()
             ->map(fn ($row) => [
                 $row->kelas,
@@ -116,7 +117,7 @@ class ReportAbsensiController extends Controller
         $format = self::format($request);
         abort_if($kelas === null, 404, 'Kelas tidak ditemukan.');
 
-        $rows = $query->orderBy('siswa')->get()->map(fn ($row) => [
+        $rows = $query->orderBy('siswa')->limit(Laporan::limit($format))->get()->map(fn ($row) => [
             $row->siswa,
             (int) $row->hadir,
             (int) $row->sakit,

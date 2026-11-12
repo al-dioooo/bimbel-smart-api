@@ -74,3 +74,17 @@ test('another mentor\'s kelas, a missing format or an unknown one are refused', 
     $this->getJson('/api/report/absensi/export')->assertUnprocessable()->assertJsonValidationErrors('format');
     $this->getJson('/api/report/absensi/export?format=csv')->assertUnprocessable()->assertJsonValidationErrors('format');
 });
+
+test('the bulan filter applies to both exports (review #29/#39)', function () {
+    Sanctum::actingAs($this->f->admin);
+
+    $rekap = ($this->sheet)($this->get('/api/report/absensi/export?format=xlsx&bulan=2026-09')->assertOk());
+    expect(array_column(array_slice($rekap, 5, -1), 0))->toBe(['Fisika 8B', 'Matematika 7A']);
+
+    $detail = ($this->sheet)($this->get("/api/report/absensi/{$this->f->k7a->id}?format=xlsx&bulan=2026-09")->assertOk());
+    expect(array_slice($detail, 6))->toEqual([
+        ['Andi', 1, 0, 0, 0, 1, '100%'],
+        ['Bela', 1, 0, 0, 0, 1, '100%'],
+        ['Total', 2, 0, 0, 0, 2, '100%'],
+    ]);
+});
