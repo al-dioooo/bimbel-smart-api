@@ -6,6 +6,7 @@ use App\Support\Sql;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Foundation\Validation\ValidatesRequests;
+use Illuminate\Pagination\AbstractPaginator;
 
 abstract class Controller
 {
@@ -45,6 +46,12 @@ abstract class Controller
             403,
             'You do not have access to this record.'
         );
+    }
+
+    /** Applies $fn to every row of a paginate() result, paginated or not. */
+    protected function mapRows($data, callable $fn)
+    {
+        return $data instanceof AbstractPaginator ? $data->through($fn) : $data->map($fn);
     }
 
     /**

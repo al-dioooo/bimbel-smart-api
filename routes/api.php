@@ -10,6 +10,7 @@ use App\Http\Controllers\MentorController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\PengajuanJadwalController;
+use App\Http\Controllers\PenyesuaianGajiController;
 use App\Http\Controllers\ReportAbsensiController;
 use App\Http\Controllers\ReportGajiController;
 use App\Http\Controllers\SiswaController;
@@ -96,6 +97,9 @@ Route::group(['middleware' => ['auth:sanctum', 'mentor.scope']], function () {
         ]);
 
         Route::get('report/gaji', [ReportGajiController::class, 'index']);
+
+        // REQ-064: manual bonus / potongan per mentor per month.
+        Route::apiResource('penyesuaian-gaji', PenyesuaianGajiController::class);
 
         Route::apiResource('notification', NotificationController::class)->only(['store'])->parameters([
             'notification' => 'notification',
