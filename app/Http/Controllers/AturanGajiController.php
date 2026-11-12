@@ -6,6 +6,7 @@ use App\Http\Requests\StoreAturanGajiRequest;
 use App\Http\Requests\UpdateAturanGajiRequest;
 use App\Models\Absensi;
 use App\Models\AturanGaji;
+use App\Models\PeriodeGaji;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -79,6 +80,18 @@ class AturanGajiController extends Controller
      */
     public function update(UpdateAturanGajiRequest $request, AturanGaji $aturanGaji)
     {
+        // UC-10 step 9: a tarif that paid a finalized month is closed with it.
+        $changes = collect($request->validated())->filter(fn ($value, $key) => (string) $value !== (string) $aturanGaji->{$key});
+        if ($changes->isNotEmpty()) {
+            foreach (array_unique(array_filter([$aturanGaji->kelas_id, $changes->get('kelas_id')])) as $kelasId) {
+                if ($periode = PeriodeGaji::usingKelas((int) $kelasId)) {
+                    throw ValidationException::withMessages([
+                        'aturan_gaji' => "Aturan gaji ini sudah dipakai pada periode gaji {$periode->label()} yang sudah difinalisasi, sehingga tidak dapat diubah.",
+                    ]);
+                }
+            }
+        }
+
         DB::beginTransaction();
 
         try {

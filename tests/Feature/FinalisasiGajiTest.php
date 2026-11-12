@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Absensi;
 use App\Models\Notification;
 use App\Models\PenyesuaianGaji;
 use App\Models\PeriodeGaji;
@@ -84,9 +85,51 @@ test('only admins preview and finalize', function () {
     ($this->finalize)()->assertForbidden();
 });
 
-describe('after finalization', function () {
+describe('after finalization (UC-10 step 9)', function () {
     beforeEach(function () {
         ($this->finalize)()->assertCreated();
+        $this->andi = Absensi::where('jadwal_id', $this->f->jSep7a->id)->where('siswa_id', $this->f->siswa['Andi']->id)->first();
+    });
+
+    test('absensi of the month cannot be added, edited or deleted', function () {
+        $citra = $this->f->k7a->siswa()->create(['nama' => 'Citra']);
+
+        $this->postJson('/api/absensi', ['jadwal_id' => $this->f->jSep7a->id, 'absensi' => [['siswa_id' => $citra->id, 'status' => 'H']]])
+            ->assertUnprocessable()->assertJsonValidationErrors(['jadwal_id' => 'Periode gaji September 2026 sudah difinalisasi']);
+        $this->putJson("/api/absensi/{$this->andi->id}", ['status' => 'A'])->assertUnprocessable()->assertJsonValidationErrors('absensi');
+        $this->deleteJson("/api/absensi/{$this->andi->id}")->assertUnprocessable()->assertJsonValidationErrors('absensi');
+
+        expect($this->andi->fresh()->status)->toBe('h');
+    });
+
+    test('a jadwal of the month cannot be edited or deleted, and none can be moved into it', function () {
+        $empty = $this->f->jadwal($this->f->k7b, '2026-09-21');
+
+        $this->putJson("/api/jadwal/{$this->f->jSep7a->id}", ['materi' => 'Ubah'])->assertUnprocessable()->assertJsonValidationErrors('jadwal');
+        $this->deleteJson("/api/jadwal/{$empty->id}")->assertUnprocessable()->assertJsonValidationErrors('jadwal');
+        $this->putJson("/api/jadwal/{$this->f->jDepan->id}", ['tanggal' => '2026-09-22'])->assertUnprocessable()->assertJsonValidationErrors('tanggal');
+    });
+
+    test('the tarif used by the month cannot change, others can', function () {
+        $this->putJson("/api/aturan-gaji/{$this->f->aturan7a->id}", ['tarif' => 35000])
+            ->assertUnprocessable()->assertJsonValidationErrors(['aturan_gaji' => 'September 2026']);
+        $this->putJson("/api/aturan-gaji/{$this->f->aturan7a->id}", ['tarif' => 30000])->assertOk();
+        $this->putJson("/api/aturan-gaji/{$this->f->aturan7b->id}", ['tarif' => 35000])->assertOk();
+
+        expect($this->f->aturan7a->fresh()->tarif)->toBe(30000.0);
+    });
+
+    test('adjustments of the month cannot be added, changed or removed', function () {
+        $bonus = PenyesuaianGaji::sole();
+
+        $this->postJson('/api/penyesuaian-gaji', ['mentor_id' => $this->f->mSari->id, 'bulan' => '2026-09', 'jenis' => 'bonus', 'nominal' => 1])
+            ->assertUnprocessable()->assertJsonValidationErrors('bulan');
+        $this->postJson('/api/aturan-gaji', ['mentor_id' => $this->f->mSari->id, 'bulan' => '2026-09', 'jenis' => 'potongan', 'nominal' => 1])
+            ->assertUnprocessable()->assertJsonValidationErrors('bulan');
+        $this->putJson("/api/penyesuaian-gaji/{$bonus->id}", ['nominal' => 1])->assertUnprocessable();
+        $this->deleteJson("/api/penyesuaian-gaji/{$bonus->id}")->assertUnprocessable();
+
+        $this->postJson('/api/penyesuaian-gaji', ['mentor_id' => $this->f->mSari->id, 'bulan' => '2026-10', 'jenis' => 'bonus', 'nominal' => 1])->assertCreated();
     });
 
     test('the report and the detail read the stored month even if a kelas changes mentor', function () {
@@ -110,4 +153,8 @@ describe('after finalization', function () {
             ->toBe([['Budi Santoso', 110000.0, 'draft']]);
     });
 
+    test('other months stay open', function () {
+        $this->postJson('/api/absensi', ['jadwal_id' => $this->f->jLalu->id, 'absensi' => [['siswa_id' => $this->f->siswa['Andi']->id, 'status' => 'H']]])
+            ->assertCreated();
+    });
 });

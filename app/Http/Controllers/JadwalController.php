@@ -6,6 +6,7 @@ use App\Http\Requests\StoreJadwalRequest;
 use App\Http\Requests\UpdateJadwalRequest;
 use App\Models\Absensi;
 use App\Models\Jadwal;
+use App\Models\PeriodeGaji;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -70,6 +71,12 @@ class JadwalController extends Controller
      */
     public function update(UpdateJadwalRequest $request, Jadwal $jadwal)
     {
+        // UC-10 step 9: neither a session of a finalized month nor a move into one.
+        PeriodeGaji::ensureOpen($jadwal->tanggal, 'jadwal', 'jadwal ini');
+        if ($request->filled('tanggal')) {
+            PeriodeGaji::ensureOpen($request->input('tanggal'), 'tanggal', 'jadwal pada periode tersebut');
+        }
+
         DB::beginTransaction();
 
         try {
@@ -96,6 +103,8 @@ class JadwalController extends Controller
      */
     public function destroy(Jadwal $jadwal)
     {
+        PeriodeGaji::ensureOpen($jadwal->tanggal, 'jadwal', 'jadwal ini');
+
         // REQ-040: attendance hangs off the jadwal and feeds the salary report.
         if (Absensi::where('jadwal_id', $jadwal->id)->exists()) {
             throw ValidationException::withMessages([

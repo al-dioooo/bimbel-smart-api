@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Sql;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\ValidationException;
@@ -64,6 +65,30 @@ class PeriodeGaji extends Model
                 $field => "Periode gaji {$periode->label()} sudah difinalisasi, sehingga {$what} tidak dapat diubah.",
             ]);
         }
+    }
+
+    /**
+     * The first finalized period in which the kelas earned kehadiran, i.e.
+     * a closed payroll that used this kelas's tarif.
+     */
+    public static function usingKelas(?int $kelasId): ?self
+    {
+        if ($kelasId === null) {
+            return null;
+        }
+
+        return static::query()
+            ->whereExists(function ($query) use ($kelasId) {
+                $query->selectRaw('1')
+                    ->from('absensi')
+                    ->join('jadwal', 'jadwal.id', '=', 'absensi.jadwal_id')
+                    ->where('jadwal.kelas_id', $kelasId)
+                    ->where('absensi.status', 'h')
+                    ->whereRaw(Sql::year('jadwal.tanggal').' = '.Sql::year('periode_gaji.periode'))
+                    ->whereRaw(Sql::month('jadwal.tanggal').' = '.Sql::month('periode_gaji.periode'));
+            })
+            ->orderBy('periode')
+            ->first();
     }
 
     /** "September 2026". */

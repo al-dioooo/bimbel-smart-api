@@ -6,6 +6,7 @@ use App\Http\Requests\StoreAbsensiRequest;
 use App\Http\Requests\UpdateAbsensiRequest;
 use App\Models\Absensi;
 use App\Models\Jadwal;
+use App\Models\PeriodeGaji;
 use App\Models\Siswa;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -50,6 +51,9 @@ class AbsensiController extends Controller
         $tanggalJadwal = Carbon::parse($jadwal->tanggal)->toDateString();
 
         $this->authorizeOwner($jadwal->kelas?->mentor_id);
+
+        // UC-10 step 9: a finalized month's attendance is closed.
+        PeriodeGaji::ensureOpen($tanggalJadwal, 'jadwal_id', 'absensi pada jadwal ini');
 
         // Each `hadir` pays the kelas tarif, so mentors may not pre-fill
         // sessions that have not happened.
@@ -135,6 +139,8 @@ class AbsensiController extends Controller
 
     public function update(UpdateAbsensiRequest $request, Absensi $absensi)
     {
+        PeriodeGaji::ensureOpen($absensi->jadwal?->tanggal ?? $absensi->tanggal, 'absensi', 'absensi ini');
+
         DB::beginTransaction();
 
         try {
@@ -163,6 +169,8 @@ class AbsensiController extends Controller
 
     public function destroy(Absensi $absensi)
     {
+        PeriodeGaji::ensureOpen($absensi->jadwal?->tanggal ?? $absensi->tanggal, 'absensi', 'absensi ini');
+
         DB::beginTransaction();
 
         try {

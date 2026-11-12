@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StorePenyesuaianGajiRequest;
 use App\Http\Requests\UpdatePenyesuaianGajiRequest;
 use App\Models\PenyesuaianGaji;
+use App\Models\PeriodeGaji;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 
@@ -51,6 +52,11 @@ class PenyesuaianGajiController extends Controller
 
     public function update(UpdatePenyesuaianGajiRequest $request, PenyesuaianGaji $penyesuaianGaji)
     {
+        PeriodeGaji::ensureOpen($penyesuaianGaji->periode, 'bulan', 'penyesuaian gaji ini');
+        if ($request->filled('bulan')) {
+            PeriodeGaji::ensureOpen(PenyesuaianGaji::periodeOf($request->input('bulan')), 'bulan', 'penyesuaian gaji periode tersebut');
+        }
+
         $penyesuaianGaji->update(self::attributes($request->validated()));
 
         return response()->json([
@@ -61,6 +67,8 @@ class PenyesuaianGajiController extends Controller
 
     public function destroy(PenyesuaianGaji $penyesuaianGaji)
     {
+        PeriodeGaji::ensureOpen($penyesuaianGaji->periode, 'bulan', 'penyesuaian gaji ini');
+
         $penyesuaianGaji->delete();
 
         return response()->json([
@@ -71,6 +79,8 @@ class PenyesuaianGajiController extends Controller
     /** Also used by the aturan gaji route for jenis bonus/potongan (UC-11). */
     public static function create(array $validated, ?int $userId): PenyesuaianGaji
     {
+        PeriodeGaji::ensureOpen(PenyesuaianGaji::periodeOf($validated['bulan']), 'bulan', 'penyesuaian gaji periode tersebut');
+
         return PenyesuaianGaji::create(self::attributes($validated) + ['created_by' => $userId])->load('mentor.user');
     }
 
