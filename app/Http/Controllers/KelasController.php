@@ -5,10 +5,12 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreKelasRequest;
 use App\Http\Requests\UpdateKelasRequest;
 use App\Models\AturanGaji;
+use App\Models\Jadwal;
 use App\Models\Kelas;
 use App\Models\Siswa;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class KelasController extends Controller
 {
@@ -123,6 +125,13 @@ class KelasController extends Controller
      */
     public function destroy(Kelas $kelas)
     {
+        // REQ-029: every absensi row hangs off a jadwal, so this covers both.
+        if (Jadwal::where('kelas_id', $kelas->id)->exists()) {
+            throw ValidationException::withMessages([
+                'kelas' => 'Kelas tidak dapat dihapus karena masih memiliki jadwal atau absensi.',
+            ]);
+        }
+
         DB::beginTransaction();
 
         try {
@@ -135,6 +144,11 @@ class KelasController extends Controller
             ], 200);
         } catch (\Throwable $e) {
             DB::rollBack();
+
+            // A row inserted after the check above: the foreign key refuses it.
+            if ($this->isForeignKeyViolation($e)) {
+                throw ValidationException::withMessages(['kelas' => 'Kelas tidak dapat dihapus karena masih memiliki jadwal atau absensi.']);
+            }
 
             return response()->json([
                 'message' => 'Failed to delete kelas data.',
