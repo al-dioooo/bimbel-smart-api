@@ -30,11 +30,19 @@ class UpdateMentorRequest extends FormRequest
             'password' => 'nullable|string|min:8',
 
             // Mentor fields
-            'kontak' => 'sometimes|nullable|string|max:100',
+            // REQ-022: "nomor telepon unik".
+            'kontak' => 'sometimes|nullable|string|max:100|unique:mentor,kontak,'.$this->mentor->id,
             'tempat_tanggal_lahir' => 'sometimes|nullable|string',
             'nik' => 'sometimes|nullable|string|max:16',
             'npwp' => 'sometimes|nullable|string|max:25',
             'alamat' => 'sometimes|nullable|string',
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'kontak.unique' => 'Nomor telepon sudah dipakai mentor lain.',
         ];
     }
 }

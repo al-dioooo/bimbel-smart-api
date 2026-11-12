@@ -30,11 +30,19 @@ class StoreMentorRequest extends FormRequest
             'password' => 'required|string|min:8',
 
             // Mentor fields
-            'kontak' => 'nullable|string|max:100',
+            // REQ-022: "nomor telepon unik".
+            'kontak' => 'nullable|string|max:100|unique:mentor,kontak',
             'tempat_tanggal_lahir' => 'nullable|string',
             'nik' => 'nullable|string|max:16',
             'npwp' => 'nullable|string|max:25',
             'alamat' => 'nullable|string',
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'kontak.unique' => 'Nomor telepon sudah dipakai mentor lain.',
         ];
     }
 }

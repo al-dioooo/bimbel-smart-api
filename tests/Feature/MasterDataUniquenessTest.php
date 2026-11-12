@@ -93,3 +93,34 @@ describe('kelas (D20)', function () {
         expect($this->f->k7b->fresh()->nama)->toBe('Matematika 7B');
     });
 });
+
+describe('mentor phone number (D20)', function () {
+    $body = fn (array $override = []) => array_merge([
+        'name' => 'Dewi Lestari', 'username' => 'dewi', 'email' => 'dewi@uji.test', 'password' => 'rahasia-uji8',
+    ], $override);
+
+    test('a new mentor may not reuse another mentor\'s kontak', function () use ($body) {
+        $this->postJson('/api/mentor', $body(['kontak' => '081234567890']))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['kontak' => 'sudah dipakai mentor lain']);
+
+        expect(User::where('username', 'dewi')->exists())->toBeFalse();
+    });
+
+    test('a new mentor with a free kontak, or none, is accepted', function () use ($body) {
+        $this->postJson('/api/mentor', $body(['kontak' => '081200000000']))->assertCreated();
+        $this->postJson('/api/mentor', $body(['username' => 'eka', 'email' => 'eka@uji.test']))->assertCreated();
+    });
+
+    test('an update may keep its own kontak but not take another mentor\'s', function () {
+        $this->putJson("/api/mentor/{$this->f->mBudi->id}", [
+            'name' => 'Budi Santoso', 'username' => 'budi', 'email' => 'budi@uji.test', 'kontak' => '081234567890',
+        ])->assertOk();
+
+        $this->putJson("/api/mentor/{$this->f->mSari->id}", [
+            'name' => 'Sari Dewi', 'username' => 'sari', 'email' => 'sari@uji.test', 'kontak' => '081234567890',
+        ])->assertUnprocessable()->assertJsonValidationErrors('kontak');
+
+        expect($this->f->mSari->fresh()->kontak)->toBe('081298765432');
+    });
+});
