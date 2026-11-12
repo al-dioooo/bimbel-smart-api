@@ -8,9 +8,12 @@ use App\Models\Kelas;
 use App\Models\Mentor;
 use App\Models\Notification;
 use App\Models\User;
+use App\Support\UniqueViolation;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
 
 class MentorController extends Controller
 {
@@ -22,11 +25,11 @@ class MentorController extends Controller
         $query = Mentor::with(['user'])
             ->join('users', 'mentor.user_id', '=', 'users.id')->select(['mentor.*', 'users.name as user_name'])
             ->filter($request->only(['search', 'nama', 'kontak']));
-        $data = $this->paginate($query, $request->query('limit') ?? 10, $request->query('paginate'), $request->query('order_by') ?? "created_at", $request->query('direction') ?? "desc");
+        $data = $this->paginate($query, $request->query('limit') ?? 10, $request->query('paginate'), $request->query('order_by') ?? 'created_at', $request->query('direction') ?? 'desc');
 
         return response()->json([
-            'message' => 'Successfully get mentor data.',
-            'data' => $data
+            'message' => 'Data mentor berhasil diambil.',
+            'data' => $data,
         ]);
     }
 
@@ -42,7 +45,7 @@ class MentorController extends Controller
                 'name' => $request->input('name'),
                 'username' => $request->input('username'),
                 'email' => $request->input('email'),
-                'password' => bcrypt($request->input('password'))
+                'password' => bcrypt($request->input('password')),
             ]);
 
             $mentor = Mentor::create([
@@ -51,22 +54,20 @@ class MentorController extends Controller
                 'tempat_tanggal_lahir' => $request->input('tempat_tanggal_lahir'),
                 'nik' => $request->input('nik'),
                 'npwp' => $request->input('npwp'),
-                'alamat' => $request->input('alamat')
+                'alamat' => $request->input('alamat'),
             ]);
 
             DB::commit();
 
             return response()->json([
-                'message' => 'Successfully store mentor data.',
-                'data' => $mentor
+                'message' => 'Data mentor berhasil ditambahkan.',
+                'data' => $mentor,
             ], 201);
         } catch (\Throwable $e) {
             DB::rollBack();
+            UniqueViolation::rethrow($e);
 
-            return response()->json([
-                'message' => 'Failed to store mentor data.',
-                'error' => $e->getMessage()
-            ], 500);
+            return $this->serverError('Data mentor gagal disimpan. Silakan coba lagi.', $e);
         }
     }
 
@@ -78,8 +79,8 @@ class MentorController extends Controller
         $mentor->load(['user']);
 
         return response()->json([
-            'message' => 'Successfully get mentor data.',
-            'data' => $mentor
+            'message' => 'Data mentor berhasil diambil.',
+            'data' => $mentor,
         ]);
     }
 
@@ -91,44 +92,36 @@ class MentorController extends Controller
         DB::beginTransaction();
 
         try {
-            $user = $mentor->user;
+            // REQ-024: change only what was sent. `input()` turned every absent
+            // field into null, which broke NOT NULL account columns (500) and
+            // silently wiped the profile (D15, G9, G10).
+            $validated = $request->validated();
 
-            // Bangun payload user tanpa password dulu
-            $userData = [
-                'name'     => $request->input('name'),
-                'email'    => $request->input('email'),
-                'username' => $request->input('username'),
-            ];
-
-            // Hanya update password jika diisi
+            $userData = Arr::only($validated, ['name', 'email', 'username']);
             if ($request->filled('password')) {
                 $userData['password'] = Hash::make($request->input('password'));
             }
 
-            $user->update($userData);
+            if ($userData !== []) {
+                $mentor->user->update($userData);
+            }
 
-            // Update Mentor profile
-            $mentor->update([
-                'kontak'               => $request->input('kontak'),
-                'tempat_tanggal_lahir' => $request->input('tempat_tanggal_lahir'),
-                'nik'                  => $request->input('nik'),
-                'npwp'                 => $request->input('npwp'),
-                'alamat'               => $request->input('alamat')
-            ]);
+            $profile = Arr::only($validated, ['kontak', 'tempat_tanggal_lahir', 'nik', 'npwp', 'alamat']);
+            if ($profile !== []) {
+                $mentor->update($profile);
+            }
 
             DB::commit();
 
             return response()->json([
-                'message' => 'Successfully update mentor data.',
-                'data'    => $mentor->load('user'),
+                'message' => 'Data mentor berhasil diperbarui.',
+                'data' => $mentor->load('user'),
             ], 200);
         } catch (\Throwable $e) {
             DB::rollBack();
+            UniqueViolation::rethrow($e);
 
-            return response()->json([
-                'message' => 'Failed to update mentor data.',
-                'error'   => $e->getMessage(),
-            ], 500);
+            return $this->serverError('Data mentor gagal diperbarui. Silakan coba lagi.', $e);
         }
     }
 
@@ -137,14 +130,28 @@ class MentorController extends Controller
      */
     public function destroy(Mentor $mentor)
     {
+        // REQ-029: salary is attributed through kelas.mentor_id, so a mentor who
+        // still teaches cannot go; their kelas must be reassigned first.
+        $kelas = Kelas::where('mentor_id', $mentor->id)->orderBy('nama')->pluck('nama');
+        if ($kelas->isNotEmpty()) {
+            throw ValidationException::withMessages([
+                'mentor' => 'Mentor tidak dapat dihapus karena masih mengampu kelas: '.$kelas->implode(', ').'. Pindahkan kelas tersebut ke mentor lain terlebih dahulu.',
+            ]);
+        }
+
+        // A finalized slip (report_gaji) must stay reachable from its mentor.
+        if (DB::table('report_gaji')->where('mentor_id', $mentor->id)->exists()) {
+            throw ValidationException::withMessages([
+                'mentor' => 'Mentor tidak dapat dihapus karena sudah memiliki catatan gaji yang difinalisasi.',
+            ]);
+        }
+
         DB::beginTransaction();
 
         try {
-            // Detach the mentor's classes, then remove the mentor and its user
-            // explicitly. Relying on the users -> mentor cascade left the order
-            // up to the driver, and failed on a foreign key under SQLite.
-            Kelas::where('mentor_id', $mentor->id)->update(['mentor_id' => null]);
-
+            // Remove the mentor and its user explicitly. Relying on the users ->
+            // mentor cascade left the order up to the driver, and failed on a
+            // foreign key under SQLite.
             $user = $mentor->user;
             $mentor->delete();
 
@@ -159,15 +166,17 @@ class MentorController extends Controller
             DB::commit();
 
             return response()->json([
-                'message' => 'Successfully delete mentor data.'
+                'message' => 'Data mentor berhasil dihapus.',
             ], 200);
         } catch (\Throwable $e) {
             DB::rollBack();
 
-            return response()->json([
-                'message' => 'Failed to delete mentor data.',
-                'error' => $e->getMessage()
-            ], 500);
+            // A row inserted after the check above: the foreign key refuses it.
+            if ($this->isForeignKeyViolation($e)) {
+                throw ValidationException::withMessages(['mentor' => 'Mentor tidak dapat dihapus karena masih mengampu kelas atau memiliki catatan gaji.']);
+            }
+
+            return $this->serverError('Data mentor gagal dihapus. Silakan coba lagi.', $e);
         }
     }
 }

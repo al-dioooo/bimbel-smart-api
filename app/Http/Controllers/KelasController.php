@@ -5,10 +5,13 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreKelasRequest;
 use App\Http\Requests\UpdateKelasRequest;
 use App\Models\AturanGaji;
+use App\Models\Jadwal;
 use App\Models\Kelas;
 use App\Models\Siswa;
+use App\Support\UniqueViolation;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class KelasController extends Controller
 {
@@ -19,11 +22,11 @@ class KelasController extends Controller
     {
         $query = Kelas::with(['mentor.user'])
             ->filter($request->only(['search', 'nama', 'tingkat', 'mentor_id', 'from', 'to']));
-        $data = $this->paginate($query, $request->query('limit') ?? 10, $request->query('paginate'), $request->query('order_by') ?? "created_at", $request->query('direction') ?? "desc");
+        $data = $this->paginate($query, $request->query('limit') ?? 10, $request->query('paginate'), $request->query('order_by') ?? 'created_at', $request->query('direction') ?? 'desc');
 
         return response()->json([
-            'message' => 'Successfully get kelas data.',
-            'data' => $data
+            'message' => 'Data kelas berhasil diambil.',
+            'data' => $data,
         ]);
     }
 
@@ -38,7 +41,7 @@ class KelasController extends Controller
             $kelas = Kelas::create($request->validatedExcept('siswa'));
             $aturanGaji = AturanGaji::create([
                 'kelas_id' => $kelas->id,
-                'tarif' => 30000
+                'tarif' => 30000,
             ]);
 
             if ($request->has('siswa')) {
@@ -54,16 +57,14 @@ class KelasController extends Controller
             DB::commit();
 
             return response()->json([
-                'message' => 'Successfully store kelas data.',
-                'data' => $kelas
+                'message' => 'Data kelas berhasil ditambahkan.',
+                'data' => $kelas,
             ], 201);
         } catch (\Throwable $e) {
             DB::rollBack();
+            UniqueViolation::rethrow($e);
 
-            return response()->json([
-                'message' => 'Failed to store kelas data.',
-                'error' => $e->getMessage()
-            ], 500);
+            return $this->serverError('Data kelas gagal disimpan. Silakan coba lagi.', $e);
         }
     }
 
@@ -77,8 +78,8 @@ class KelasController extends Controller
         $kelas->load(['siswa']);
 
         return response()->json([
-            'message' => 'Successfully get kelas data.',
-            'data' => $kelas
+            'message' => 'Data kelas berhasil diambil.',
+            'data' => $kelas,
         ]);
     }
 
@@ -105,16 +106,14 @@ class KelasController extends Controller
             DB::commit();
 
             return response()->json([
-                'message' => 'Successfully update kelas data.',
-                'data' => $kelas
+                'message' => 'Data kelas berhasil diperbarui.',
+                'data' => $kelas,
             ], 200);
         } catch (\Throwable $e) {
             DB::rollBack();
+            UniqueViolation::rethrow($e);
 
-            return response()->json([
-                'message' => 'Failed to update kelas data.',
-                'error' => $e->getMessage()
-            ], 500);
+            return $this->serverError('Data kelas gagal diperbarui. Silakan coba lagi.', $e);
         }
     }
 
@@ -123,6 +122,13 @@ class KelasController extends Controller
      */
     public function destroy(Kelas $kelas)
     {
+        // REQ-029: every absensi row hangs off a jadwal, so this covers both.
+        if (Jadwal::where('kelas_id', $kelas->id)->exists()) {
+            throw ValidationException::withMessages([
+                'kelas' => 'Kelas tidak dapat dihapus karena masih memiliki jadwal atau absensi.',
+            ]);
+        }
+
         DB::beginTransaction();
 
         try {
@@ -131,15 +137,17 @@ class KelasController extends Controller
             DB::commit();
 
             return response()->json([
-                'message' => 'Successfully delete kelas data.'
+                'message' => 'Data kelas berhasil dihapus.',
             ], 200);
         } catch (\Throwable $e) {
             DB::rollBack();
 
-            return response()->json([
-                'message' => 'Failed to delete kelas data.',
-                'error' => $e->getMessage()
-            ], 500);
+            // A row inserted after the check above: the foreign key refuses it.
+            if ($this->isForeignKeyViolation($e)) {
+                throw ValidationException::withMessages(['kelas' => 'Kelas tidak dapat dihapus karena masih memiliki jadwal atau absensi.']);
+            }
+
+            return $this->serverError('Data kelas gagal dihapus. Silakan coba lagi.', $e);
         }
     }
 }

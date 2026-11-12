@@ -9,9 +9,11 @@ class PengajuanJadwal extends Model
 {
     protected $table = 'pengajuan_jadwal';
 
-    public const STATUS_PENDING  = 'pending';
+    public const STATUS_PENDING = 'pending';
+
     public const STATUS_DITERIMA = 'diterima';
-    public const STATUS_DITOLAK  = 'ditolak';
+
+    public const STATUS_DITOLAK = 'ditolak';
 
     public const STATUSES = [
         self::STATUS_PENDING,
@@ -29,7 +31,7 @@ class PengajuanJadwal extends Model
         'waktu_selesai_sebelum',
         'waktu_selesai_sesudah',
         'alasan',
-        'status'
+        'status',
     ];
 
     protected function casts(): array
@@ -54,7 +56,6 @@ class PengajuanJadwal extends Model
      * controller passes both.
      *
      * @param  mixed  $query
-     * @param  array  $filters
      * @return mixed $query
      */
     public function scopeFilter($query, array $filters)
@@ -67,10 +68,10 @@ class PengajuanJadwal extends Model
             // Grouped, so the OR cannot escape the other filters (e.g. mentor_id).
             $query->where(function ($query) use ($value, $like) {
                 $query->whereHas('jadwal.kelas', function ($query) use ($value, $like) {
-                    $query->where('nama', $like, '%' . $value . '%')
-                        ->orWhere('tingkat', $like, '%' . $value . '%');
+                    $query->where('nama', $like, '%'.$value.'%')
+                        ->orWhere('tingkat', $like, '%'.$value.'%');
                 })->orWhereHas('jadwal.kelas.mentor.user', function ($query) use ($value, $like) {
-                    $query->where('name', $like, '%' . $value . '%');
+                    $query->where('name', $like, '%'.$value.'%');
                 });
             });
         })->when($filters['status'] ?? null, function ($query, $value) use ($table) {

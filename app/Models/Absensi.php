@@ -15,8 +15,9 @@ class Absensi extends Model
 
         'tanggal',
         'status',
+        'catatan',
 
-        'is_open'
+        'is_open',
     ];
 
     protected function casts(): array
@@ -44,7 +45,6 @@ class Absensi extends Model
      * but neither the scope nor the relations existed, so the endpoint threw.
      *
      * @param  mixed  $query
-     * @param  array  $filters
      * @return mixed $query
      */
     public function scopeFilter($query, array $filters)
@@ -54,7 +54,7 @@ class Absensi extends Model
         $like = Sql::like();
 
         $query->when($filters['search'] ?? null, function ($query, $value) use ($like) {
-            $query->whereRelation('siswa', 'nama', $like, '%' . $value . '%');
+            $query->whereRelation('siswa', 'nama', $like, '%'.$value.'%');
         })->when($filters['siswa_id'] ?? null, function ($query, $value) use ($table) {
             $query->where("{$table}.siswa_id", $value);
         })->when($filters['jadwal_id'] ?? null, function ($query, $value) use ($table) {

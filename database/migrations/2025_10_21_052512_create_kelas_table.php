@@ -18,7 +18,7 @@ return new class extends Migration
             $table->foreignIdFor(Mentor::class)->nullable()->constrained()->nullOnDelete();
             $table->string('nama');
             $table->string('tingkat');
-            
+
             $table->timestamps();
         });
     }

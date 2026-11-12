@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateNotificationRequest extends FormRequest
@@ -12,7 +13,7 @@ class UpdateNotificationRequest extends FormRequest
     }
 
     /**
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
+     * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
@@ -20,7 +21,7 @@ class UpdateNotificationRequest extends FormRequest
             'is_read' => ['sometimes', 'boolean'],
             'title' => ['sometimes', 'required', 'string', 'max:255'],
             'message' => ['sometimes', 'required', 'string'],
-            'link' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'link' => ['sometimes', 'nullable', 'string', 'max:100'], // notifications.link is varchar(100)
         ];
     }
 }

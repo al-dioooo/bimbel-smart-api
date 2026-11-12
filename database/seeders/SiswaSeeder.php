@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use App\Models\Siswa;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class SiswaSeeder extends Seeder
@@ -25,7 +24,7 @@ class SiswaSeeder extends Seeder
                 'pekerjaan_wali' => 'Karyawan Swasta',
                 'alamat_wali' => 'Jl. Merdeka No. 10, Jakarta',
                 'created_at' => now(),
-                'updated_at' => now()
+                'updated_at' => now(),
             ],
             [
                 'nama' => 'Noni Sofia',
@@ -38,7 +37,7 @@ class SiswaSeeder extends Seeder
                 'pekerjaan_wali' => 'Ibu Rumah Tangga',
                 'alamat_wali' => 'Jl. Sudirman No. 5, Bandung',
                 'created_at' => now(),
-                'updated_at' => now()
+                'updated_at' => now(),
             ],
             [
                 'nama' => 'Ahmad Dani',
@@ -51,7 +50,7 @@ class SiswaSeeder extends Seeder
                 'pekerjaan_wali' => 'Ibu Rumah Tangga',
                 'alamat_wali' => 'Jl. Sudirman No. 5, Bandung',
                 'created_at' => now(),
-                'updated_at' => now()
+                'updated_at' => now(),
             ],
             [
                 'nama' => 'Budi Santoso',
@@ -64,7 +63,7 @@ class SiswaSeeder extends Seeder
                 'pekerjaan_wali' => 'Ibu Rumah Tangga',
                 'alamat_wali' => 'Jl. Sudirman No. 5, Bandung',
                 'created_at' => now(),
-                'updated_at' => now()
+                'updated_at' => now(),
             ],
             [
                 'nama' => 'Citra Kirana',
@@ -77,7 +76,7 @@ class SiswaSeeder extends Seeder
                 'pekerjaan_wali' => 'Ibu Rumah Tangga',
                 'alamat_wali' => 'Jl. Sudirman No. 5, Bandung',
                 'created_at' => now(),
-                'updated_at' => now()
+                'updated_at' => now(),
             ],
             [
                 'nama' => 'Dewi Sartika',
@@ -90,7 +89,7 @@ class SiswaSeeder extends Seeder
                 'pekerjaan_wali' => 'Ibu Rumah Tangga',
                 'alamat_wali' => 'Jl. Sudirman No. 5, Bandung',
                 'created_at' => now(),
-                'updated_at' => now()
+                'updated_at' => now(),
             ],
             [
                 'nama' => 'Dewi Sartika',
@@ -103,7 +102,7 @@ class SiswaSeeder extends Seeder
                 'pekerjaan_wali' => 'Ibu Rumah Tangga',
                 'alamat_wali' => 'Jl. Sudirman No. 5, Bandung',
                 'created_at' => now(),
-                'updated_at' => now()
+                'updated_at' => now(),
             ],
             [
                 'nama' => 'Eko Patrio',
@@ -116,7 +115,7 @@ class SiswaSeeder extends Seeder
                 'pekerjaan_wali' => 'Ibu Rumah Tangga',
                 'alamat_wali' => 'Jl. Sudirman No. 5, Bandung',
                 'created_at' => now(),
-                'updated_at' => now()
+                'updated_at' => now(),
             ],
             [
                 'nama' => 'Fajar Sadboy',
@@ -129,8 +128,8 @@ class SiswaSeeder extends Seeder
                 'pekerjaan_wali' => 'Ibu Rumah Tangga',
                 'alamat_wali' => 'Jl. Sudirman No. 5, Bandung',
                 'created_at' => now(),
-                'updated_at' => now()
-            ]
+                'updated_at' => now(),
+            ],
         ];
 
         Siswa::insert($data);

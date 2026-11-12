@@ -2,7 +2,10 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Kelas;
+use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Validator;
 
 class StoreKelasRequest extends FormRequest
 {
@@ -17,7 +20,7 @@ class StoreKelasRequest extends FormRequest
     /**
      * Get the validation rules that apply to the request.
      *
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
+     * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
@@ -28,7 +31,26 @@ class StoreKelasRequest extends FormRequest
 
             // Relationships
             'siswa' => ['sometimes', 'array'],
-            'siswa.*' => ['integer', 'exists:siswa,id']
+            'siswa.*' => ['integer', 'exists:siswa,id'],
+        ];
+    }
+
+    /** REQ-028: refuse a second kelas with the same nama and tingkat. */
+    public function after(): array
+    {
+        return [
+            function (Validator $validator) {
+                if ($validator->errors()->hasAny(['nama', 'tingkat'])) {
+                    return;
+                }
+
+                $nama = (string) $this->input('nama');
+                $tingkat = (string) $this->input('tingkat');
+
+                if (Kelas::duplicateExists($nama, $tingkat, null)) {
+                    $validator->errors()->add('nama', "Kelas {$nama} tingkat {$tingkat} sudah terdaftar.");
+                }
+            },
         ];
     }
 }

@@ -3,7 +3,10 @@
 namespace App\Models;
 
 use App\Support\Sql;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 
 class Jadwal extends Model
 {
@@ -26,7 +29,7 @@ class Jadwal extends Model
         'waktu_mulai',
         'waktu_selesai',
 
-        'materi'
+        'materi',
     ];
 
     public function kelas()
@@ -34,11 +37,80 @@ class Jadwal extends Model
         return $this->belongsTo(Kelas::class);
     }
 
+    public function absensi()
+    {
+        return $this->hasMany(Absensi::class);
+    }
+
+    /**
+     * Sessions whose attendance is missing or incomplete, one rule for the
+     * mentor's reminders (REQ-071) and the finalize warning (UC-10 3a).
+     * Empty: no record yet while the kelas has students. Incomplete: some
+     * records, but a student of the kelas who had joined by the session date
+     * has none (the students the absensi form still accepts on a partly
+     * filled session).
+     */
+    public function scopeAbsensiBelumLengkap(Builder $query): Builder
+    {
+        return $query->where(fn ($q) => $q
+            ->where(fn ($kosong) => $kosong->doesntHave('absensi')->whereHas('kelas.siswa'))
+            ->orWhere(fn ($sebagian) => $sebagian->has('absensi')->whereExists(fn ($siswa) => $siswa
+                ->selectRaw('1')->from('siswa')
+                ->whereColumn('siswa.kelas_id', 'jadwal.kelas_id')
+                ->whereRaw('DATE(siswa.tanggal_bergabung) <= DATE(jadwal.tanggal)')
+                ->whereNotExists(fn ($absensi) => $absensi
+                    ->selectRaw('1')->from('absensi')
+                    ->whereColumn('absensi.jadwal_id', 'jadwal.id')
+                    ->whereColumn('absensi.siswa_id', 'siswa.id')))));
+    }
+
+    /**
+     * Times are stored as H:i:s whatever the client sent (the API accepts H:i),
+     * so they compare correctly as text on SQLite as well as on PostgreSQL.
+     */
+    protected function waktuMulai(): Attribute
+    {
+        return Attribute::set(fn ($value) => self::normalizeTime($value));
+    }
+
+    protected function waktuSelesai(): Attribute
+    {
+        return Attribute::set(fn ($value) => self::normalizeTime($value));
+    }
+
+    public static function normalizeTime(?string $value): ?string
+    {
+        return $value === null ? null : Carbon::parse($value)->format('H:i:s');
+    }
+
+    /**
+     * REQ-032 / REQ-034: the first other session on the same date that overlaps
+     * [mulai, selesai) and belongs to the same kelas or to a kelas of the same
+     * mentor. Sessions that only touch (one ends 10:00, the next starts 10:00)
+     * do not overlap.
+     */
+    public static function findConflict(int $kelasId, string $tanggal, string $mulai, string $selesai, ?int $ignoreId = null): ?self
+    {
+        $mentorId = Kelas::whereKey($kelasId)->value('mentor_id');
+
+        return static::query()
+            ->with('kelas')
+            ->whereDate('tanggal', Carbon::parse($tanggal)->toDateString())
+            ->where('waktu_mulai', '<', self::normalizeTime($selesai))
+            ->where('waktu_selesai', '>', self::normalizeTime($mulai))
+            ->where(function ($query) use ($kelasId, $mentorId) {
+                $query->where('kelas_id', $kelasId)
+                    ->when($mentorId, fn ($query) => $query->orWhereIn('kelas_id', Kelas::where('mentor_id', $mentorId)->select('id')));
+            })
+            ->when($ignoreId, fn ($query) => $query->whereKeyNot($ignoreId))
+            ->orderBy('waktu_mulai')
+            ->first();
+    }
+
     /**
      * Resource filter function.
      *
      * @param  mixed  $query
-     * @param  array  $filters
      * @return mixed $query
      */
     public function scopeFilter($query, array $filters)
@@ -47,7 +119,7 @@ class Jadwal extends Model
         // ILIKE on PostgreSQL; MySQL's default collation is already case insensitive.
         $like = Sql::like();
 
-        $query->when($filters['search'] ?? null, function ($query, $value) use ($table, $like) {
+        $query->when($filters['search'] ?? null, function ($query, $value) use ($like) {
             $splittedValue = explode(' ', $value);
             $mappedValueArray = [];
 
@@ -56,13 +128,13 @@ class Jadwal extends Model
                 array_push($mappedValueArray, $row);
             }
 
-            $mappedValue = implode("%", $mappedValueArray);
+            $mappedValue = implode('%', $mappedValueArray);
 
             $query->whereHas('kelas', function ($query) use ($mappedValue, $like) {
-                $query->where('nama', $like, '%' . $mappedValue . '%');
+                $query->where('nama', $like, '%'.$mappedValue.'%');
             });
         })->when($filters['kelas_id'] ?? null, function ($query, $value) use ($table) {
-            $query->where("{$table}.kelas_id",  $value);
+            $query->where("{$table}.kelas_id", $value);
         })->when($filters['mentor_id'] ?? null, function ($query, $value) {
             $query->whereRelation('kelas', 'mentor_id', $value);
         })->when(($filters['from'] ?? null) && ($filters['to'] ?? null), function ($query) use ($filters, $table) {

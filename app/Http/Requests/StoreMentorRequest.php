@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreMentorRequest extends FormRequest
@@ -17,7 +18,7 @@ class StoreMentorRequest extends FormRequest
     /**
      * Get the validation rules that apply to the request.
      *
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
+     * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
@@ -29,11 +30,19 @@ class StoreMentorRequest extends FormRequest
             'password' => 'required|string|min:8',
 
             // Mentor fields
-            'kontak' => 'nullable|string|max:100',
-            'tempat_tanggal_lahir' => 'nullable|string',
+            // REQ-022: "nomor telepon unik".
+            'kontak' => 'nullable|string|max:100|unique:mentor,kontak',
+            'tempat_tanggal_lahir' => 'nullable|string|max:255',
             'nik' => 'nullable|string|max:16',
             'npwp' => 'nullable|string|max:25',
             'alamat' => 'nullable|string',
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'kontak.unique' => 'Nomor telepon sudah dipakai mentor lain.',
         ];
     }
 }

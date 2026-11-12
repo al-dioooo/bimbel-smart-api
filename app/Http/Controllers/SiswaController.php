@@ -4,9 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreSiswaRequest;
 use App\Http\Requests\UpdateSiswaRequest;
+use App\Models\Absensi;
 use App\Models\Siswa;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class SiswaController extends Controller
 {
@@ -17,11 +19,11 @@ class SiswaController extends Controller
     {
         $query = Siswa::with(['kelas'])
             ->filter($request->only(['search', 'nama', 'kelas', 'kelas_id', 'mentor_id', 'no_kelas', 'from', 'to']));
-        $data = $this->paginate($query, $request->query('limit') ?? 10, $request->query('paginate'), $request->query('order_by') ?? "created_at", $request->query('direction') ?? "desc");
+        $data = $this->paginate($query, $request->query('limit') ?? 10, $request->query('paginate'), $request->query('order_by') ?? 'created_at', $request->query('direction') ?? 'desc');
 
         return response()->json([
-            'message' => 'Successfully get siswa data.',
-            'data' => $data
+            'message' => 'Data siswa berhasil diambil.',
+            'data' => $data,
         ]);
     }
 
@@ -38,16 +40,13 @@ class SiswaController extends Controller
             DB::commit();
 
             return response()->json([
-                'message' => 'Successfully store siswa$siswa data.',
-                'data' => $siswa
+                'message' => 'Data siswa berhasil ditambahkan.',
+                'data' => $siswa,
             ], 201);
         } catch (\Throwable $e) {
             DB::rollBack();
 
-            return response()->json([
-                'message' => 'Failed to store siswa data.',
-                'error' => $e->getMessage()
-            ], 500);
+            return $this->serverError('Data siswa gagal disimpan. Silakan coba lagi.', $e);
         }
     }
 
@@ -59,8 +58,8 @@ class SiswaController extends Controller
         $this->authorizeOwner($siswa->kelas?->mentor_id);
 
         return response()->json([
-            'message' => 'Successfully get siswa data.',
-            'data' => $siswa
+            'message' => 'Data siswa berhasil diambil.',
+            'data' => $siswa,
         ]);
     }
 
@@ -77,16 +76,13 @@ class SiswaController extends Controller
             DB::commit();
 
             return response()->json([
-                'message' => 'Successfully update siswa data.',
-                'data' => $siswa
+                'message' => 'Data siswa berhasil diperbarui.',
+                'data' => $siswa,
             ], 200);
         } catch (\Throwable $e) {
             DB::rollBack();
 
-            return response()->json([
-                'message' => 'Failed to update siswa data.',
-                'error' => $e->getMessage()
-            ], 500);
+            return $this->serverError('Data siswa gagal diperbarui. Silakan coba lagi.', $e);
         }
     }
 
@@ -95,6 +91,13 @@ class SiswaController extends Controller
      */
     public function destroy(Siswa $siswa)
     {
+        // REQ-029: the attendance history (and the salary it paid) would lose its siswa.
+        if (Absensi::where('siswa_id', $siswa->id)->exists()) {
+            throw ValidationException::withMessages([
+                'siswa' => 'Siswa tidak dapat dihapus karena sudah memiliki catatan absensi.',
+            ]);
+        }
+
         DB::beginTransaction();
 
         try {
@@ -103,15 +106,17 @@ class SiswaController extends Controller
             DB::commit();
 
             return response()->json([
-                'message' => 'Successfully delete siswa data.'
+                'message' => 'Data siswa berhasil dihapus.',
             ], 200);
         } catch (\Throwable $e) {
             DB::rollBack();
 
-            return response()->json([
-                'message' => 'Failed to delete siswa data.',
-                'error' => $e->getMessage()
-            ], 500);
+            // A row inserted after the check above: the foreign key refuses it.
+            if ($this->isForeignKeyViolation($e)) {
+                throw ValidationException::withMessages(['siswa' => 'Siswa tidak dapat dihapus karena sudah memiliki catatan absensi.']);
+            }
+
+            return $this->serverError('Data siswa gagal dihapus. Silakan coba lagi.', $e);
         }
     }
 }

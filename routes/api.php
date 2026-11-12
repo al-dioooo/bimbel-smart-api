@@ -8,7 +8,9 @@ use App\Http\Controllers\JadwalController;
 use App\Http\Controllers\KelasController;
 use App\Http\Controllers\MentorController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\PengajuanJadwalController;
+use App\Http\Controllers\PenyesuaianGajiController;
 use App\Http\Controllers\ReportAbsensiController;
 use App\Http\Controllers\ReportGajiController;
 use App\Http\Controllers\SiswaController;
@@ -16,6 +18,13 @@ use Illuminate\Support\Facades\Route;
 
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/logout', [AuthController::class, 'logout']);
+
+// Lupa kata sandi (REQ-012–REQ-015). Throttled per IP and per email
+// (AppServiceProvider) on top of the broker's one-minute throttle per email.
+Route::middleware('throttle:lupa-sandi')->group(function () {
+    Route::post('/forgot-password', [PasswordResetController::class, 'forgot']);
+    Route::post('/reset-password', [PasswordResetController::class, 'reset']);
+});
 
 // Both roles. `mentor.scope` pins ?mentor_id= for mentors, and show/store
 // actions check ownership, so a mentor only ever sees their own kelas.
@@ -28,69 +37,78 @@ Route::group(['middleware' => ['auth:sanctum', 'mentor.scope']], function () {
 
     // Data (read)
     Route::apiResource('kelas', KelasController::class)->only(['index', 'show'])->parameters([
-        'kelas' => 'kelas'
+        'kelas' => 'kelas',
     ]);
     Route::apiResource('siswa', SiswaController::class)->only(['index', 'show'])->parameters([
-        'siswa' => 'siswa'
+        'siswa' => 'siswa',
     ]);
 
     // Absensi — mentors save attendance for their own jadwal.
     Route::apiResource('absensi', AbsensiController::class)->only(['index', 'show', 'store'])->parameters([
-        'absensi' => 'absensi'
+        'absensi' => 'absensi',
     ]);
 
     // Jadwal
     Route::apiResource('jadwal', JadwalController::class)->only(['index', 'show'])->parameters([
-        'jadwal' => 'jadwal'
+        'jadwal' => 'jadwal',
     ]);
     // Mentors submit requests and may cancel their own pending ones.
     Route::apiResource('pengajuan-jadwal', PengajuanJadwalController::class)->only(['index', 'show', 'store', 'destroy'])->parameters([
-        'pengajuanJadwal' => 'pengajuanJadwal'
+        'pengajuanJadwal' => 'pengajuanJadwal',
     ]);
 
     // Report — both are derived on read (there is no report_absensi table), so
     // these are plain routes rather than model-bound apiResources.
-    Route::get('report/gaji/{mentor}', [ReportGajiController::class, 'show']);
+    Route::get('report/gaji/{mentor}', [ReportGajiController::class, 'show'])->whereNumber('mentor');
     Route::get('report/absensi', [ReportAbsensiController::class, 'index']);
-    Route::get('report/absensi/{kelas}', [ReportAbsensiController::class, 'show']);
+    Route::get('report/absensi/export', [ReportAbsensiController::class, 'export']);
+    Route::get('report/absensi/{kelas}', [ReportAbsensiController::class, 'show'])->whereNumber('kelas');
 
     // Notifications — each user reads and marks their own.
     Route::apiResource('notification', NotificationController::class)->only(['index', 'show', 'update', 'destroy'])->parameters([
-        'notification' => 'notification'
+        'notification' => 'notification',
     ]);
 
     // Admin only.
     Route::middleware('admin')->group(function () {
         Route::apiResource('kelas', KelasController::class)->except(['index', 'show'])->parameters([
-            'kelas' => 'kelas'
+            'kelas' => 'kelas',
         ]);
         Route::apiResource('siswa', SiswaController::class)->except(['index', 'show'])->parameters([
-            'siswa' => 'siswa'
+            'siswa' => 'siswa',
         ]);
         Route::apiResource('mentor', MentorController::class)->parameters([
-            'mentor' => 'mentor'
+            'mentor' => 'mentor',
         ]);
 
         Route::apiResource('absensi', AbsensiController::class)->only(['update', 'destroy'])->parameters([
-            'absensi' => 'absensi'
+            'absensi' => 'absensi',
         ]);
 
         Route::apiResource('jadwal', JadwalController::class)->except(['index', 'show'])->parameters([
-            'jadwal' => 'jadwal'
+            'jadwal' => 'jadwal',
         ]);
         // Approving or rejecting is the only update.
         Route::apiResource('pengajuan-jadwal', PengajuanJadwalController::class)->only(['update'])->parameters([
-            'pengajuanJadwal' => 'pengajuanJadwal'
+            'pengajuanJadwal' => 'pengajuanJadwal',
         ]);
 
         Route::apiResource('aturan-gaji', AturanGajiController::class)->parameters([
-            'aturanGaji' => 'aturanGaji'
+            'aturanGaji' => 'aturanGaji',
         ]);
 
         Route::get('report/gaji', [ReportGajiController::class, 'index']);
 
+        // UC-10: preview a month's payroll, then finalize and lock it.
+        Route::get('report/gaji/periode/{bulan}', [ReportGajiController::class, 'periode']);
+        Route::post('report/gaji', [ReportGajiController::class, 'finalize']);
+        Route::get('report/gaji/export', [ReportGajiController::class, 'export']);
+
+        // REQ-064: manual bonus / potongan per mentor per month.
+        Route::apiResource('penyesuaian-gaji', PenyesuaianGajiController::class);
+
         Route::apiResource('notification', NotificationController::class)->only(['store'])->parameters([
-            'notification' => 'notification'
+            'notification' => 'notification',
         ]);
     });
 });

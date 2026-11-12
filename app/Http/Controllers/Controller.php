@@ -3,8 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Support\Sql;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Foundation\Validation\ValidatesRequests;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Pagination\AbstractPaginator;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 
 abstract class Controller
 {
@@ -42,15 +47,61 @@ abstract class Controller
         abort_unless(
             $mentorId !== null && $user?->mentor && (int) $mentorId === (int) $user->mentor->id,
             403,
-            'You do not have access to this record.'
+            'Anda tidak memiliki akses ke data ini.'
         );
     }
 
-    public function paginate($query, $limit = 15, $usePagination = true, $orderBy = "created_at", $direction = "desc")
+    /**
+     * A failed write: 500 with a user-facing message. The driver error (often
+     * the SQL, with bound values) is logged, and only returned while debugging.
+     */
+    protected function serverError(string $message, \Throwable $e): JsonResponse
     {
-        if ($usePagination === 'false' || $usePagination === false)
-            return $query->orderBy($orderBy, $direction)->get();
+        report($e);
 
-        return $query->orderBy($orderBy, $direction)->paginate($limit)->setPath("")->withQueryString();
+        return response()->json(array_filter([
+            'message' => $message,
+            'error' => config('app.debug') ? $e->getMessage() : null,
+        ]), 500);
+    }
+
+    /** Applies $fn to every row of a paginate() result, paginated or not. */
+    protected function mapRows($data, callable $fn)
+    {
+        return $data instanceof AbstractPaginator ? $data->through($fn) : $data->map($fn);
+    }
+
+    /** paginate() for rows already in memory, with the same parameters. */
+    protected function paginateCollection(Collection $rows, $limit = 15, $usePagination = true)
+    {
+        if ($usePagination === 'false' || $usePagination === false) {
+            return $rows->values();
+        }
+
+        $limit = max(1, (int) $limit);
+        $page = LengthAwarePaginator::resolveCurrentPage();
+
+        return (new LengthAwarePaginator($rows->forPage($page, $limit)->values(), $rows->count(), $limit, $page))
+            ->setPath('')
+            ->withQueryString();
+    }
+
+    /**
+     * The database refused a delete because another row still references it
+     * (restrictOnDelete). PostgreSQL reports 23503, SQLite 23000.
+     */
+    protected function isForeignKeyViolation(\Throwable $e): bool
+    {
+        return $e instanceof QueryException && in_array((string) $e->getCode(), ['23503', '23000'], true)
+            && str_contains(strtolower($e->getMessage()), 'foreign key');
+    }
+
+    public function paginate($query, $limit = 15, $usePagination = true, $orderBy = 'created_at', $direction = 'desc')
+    {
+        if ($usePagination === 'false' || $usePagination === false) {
+            return $query->orderBy($orderBy, $direction)->get();
+        }
+
+        return $query->orderBy($orderBy, $direction)->paginate($limit)->setPath('')->withQueryString();
     }
 }

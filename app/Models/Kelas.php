@@ -24,7 +24,7 @@ class Kelas extends Model
 
         'mentor_id',
 
-        'tingkat'
+        'tingkat',
     ];
 
     public function mentor()
@@ -38,10 +38,22 @@ class Kelas extends Model
     }
 
     /**
+     * REQ-022 / REQ-028: a kelas is identified by its nama and tingkat, so
+     * "Matematika 7A" SMP may exist once. Compared trimmed and case-insensitive.
+     */
+    public static function duplicateExists(string $nama, string $tingkat, ?int $ignoreId = null): bool
+    {
+        return static::query()
+            ->whereRaw('LOWER(TRIM(nama)) = ?', [mb_strtolower(trim($nama))])
+            ->whereRaw('LOWER(TRIM(tingkat)) = ?', [mb_strtolower(trim($tingkat))])
+            ->when($ignoreId, fn ($query) => $query->whereKeyNot($ignoreId))
+            ->exists();
+    }
+
+    /**
      * Resource filter function.
      *
      * @param  mixed  $query
-     * @param  array  $filters
      * @return mixed $query
      */
     public function scopeFilter($query, array $filters)
@@ -59,15 +71,15 @@ class Kelas extends Model
                 array_push($mappedValueArray, $row);
             }
 
-            $mappedValue = implode("%", $mappedValueArray);
+            $mappedValue = implode('%', $mappedValueArray);
 
             // $query->whereFullText(["{$table}.name", "{$table}.long_name", "{$table}.sku"], $mappedValue, ['mode' => 'boolean', '']);
             // Grouped, so the OR cannot escape the other filters (e.g. mentor_id).
             $query->where(function ($query) use ($table, $like, $mappedValue) {
-                $query->where("{$table}.nama", $like, '%' . $mappedValue . '%')->orWhere("{$table}.tingkat", $like, '%' . $mappedValue . '%');
+                $query->where("{$table}.nama", $like, '%'.$mappedValue.'%')->orWhere("{$table}.tingkat", $like, '%'.$mappedValue.'%');
             });
         })->when($filters['nama'] ?? null, function ($query, $value) use ($table, $like) {
-            $query->where("{$table}.nama", $like, '%' . $value . '%');
+            $query->where("{$table}.nama", $like, '%'.$value.'%');
         })->when($filters['tingkat'] ?? null, function ($query, $value) use ($table) {
             $query->where("{$table}.tingkat", $value);
         })->when($filters['mentor_id'] ?? null, function ($query, $value) use ($table) {
