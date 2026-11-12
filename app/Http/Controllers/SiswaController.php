@@ -4,9 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreSiswaRequest;
 use App\Http\Requests\UpdateSiswaRequest;
+use App\Models\Absensi;
 use App\Models\Siswa;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class SiswaController extends Controller
 {
@@ -95,6 +97,13 @@ class SiswaController extends Controller
      */
     public function destroy(Siswa $siswa)
     {
+        // REQ-029: the attendance history (and the salary it paid) would lose its siswa.
+        if (Absensi::where('siswa_id', $siswa->id)->exists()) {
+            throw ValidationException::withMessages([
+                'siswa' => 'Siswa tidak dapat dihapus karena sudah memiliki catatan absensi.',
+            ]);
+        }
+
         DB::beginTransaction();
 
         try {

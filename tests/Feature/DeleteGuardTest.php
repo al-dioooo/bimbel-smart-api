@@ -89,3 +89,20 @@ test('an aturan gaji whose kelas has no kehadiran can be deleted', function () {
 
     expect(AturanGaji::find($this->f->aturan7b->id))->toBeNull();
 });
+
+test('a siswa with absensi cannot be deleted', function () {
+    $andi = $this->f->siswa['Andi'];
+
+    $this->deleteJson("/api/siswa/{$andi->id}")
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['siswa' => 'sudah memiliki catatan absensi']);
+
+    expect(Siswa::find($andi->id))->not->toBeNull()
+        ->and(Absensi::where('siswa_id', $andi->id)->count())->toBe(2);
+});
+
+test('a siswa without absensi can be deleted', function () {
+    $this->deleteJson("/api/siswa/{$this->f->siswa['Gita']->id}")->assertOk();
+
+    expect(Siswa::find($this->f->siswa['Gita']->id))->toBeNull();
+});
