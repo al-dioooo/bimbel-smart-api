@@ -4,9 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreJadwalRequest;
 use App\Http\Requests\UpdateJadwalRequest;
+use App\Models\Absensi;
 use App\Models\Jadwal;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class JadwalController extends Controller
 {
@@ -94,6 +96,13 @@ class JadwalController extends Controller
      */
     public function destroy(Jadwal $jadwal)
     {
+        // REQ-040: attendance hangs off the jadwal and feeds the salary report.
+        if (Absensi::where('jadwal_id', $jadwal->id)->exists()) {
+            throw ValidationException::withMessages([
+                'jadwal' => 'Jadwal tidak dapat dihapus karena sudah memiliki catatan absensi.',
+            ]);
+        }
+
         DB::beginTransaction();
 
         try {
