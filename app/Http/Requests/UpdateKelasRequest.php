@@ -49,6 +49,13 @@ class UpdateKelasRequest extends FormRequest
                 $nama = (string) $this->input('nama', $kelas->nama);
                 $tingkat = (string) $this->input('tingkat', $kelas->tingkat);
 
+                // Only a changed name is checked, so a kelas that was already a
+                // duplicate before this rule can still get e.g. a new mentor.
+                $same = fn ($a, $b) => mb_strtolower(trim((string) $a)) === mb_strtolower(trim((string) $b));
+                if ($same($nama, $kelas->nama) && $same($tingkat, $kelas->tingkat)) {
+                    return;
+                }
+
                 if (Kelas::duplicateExists($nama, $tingkat, $kelas->id)) {
                     $validator->errors()->add('nama', "Kelas {$nama} tingkat {$tingkat} sudah terdaftar.");
                 }
