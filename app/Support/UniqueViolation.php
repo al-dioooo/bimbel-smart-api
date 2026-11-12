@@ -25,6 +25,8 @@ class UniqueViolation
         'users.username' => ['username', 'Username sudah digunakan.'],
         'users_email_unique' => ['email', 'Email sudah digunakan.'],
         'users.email' => ['email', 'Email sudah digunakan.'],
+        'absensi_jadwal_id_siswa_id_unique' => ['absensi', 'Absensi sudah diisi. Perubahan dilakukan oleh admin melalui Ubah Absensi.'],
+        'absensi.jadwal_id, absensi.siswa_id' => ['absensi', 'Absensi sudah diisi. Perubahan dilakukan oleh admin melalui Ubah Absensi.'],
     ];
 
     /** Rethrows a known unique violation as a ValidationException; otherwise does nothing. */

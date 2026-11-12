@@ -8,6 +8,7 @@ use App\Models\Absensi;
 use App\Models\Jadwal;
 use App\Models\Kelas;
 use App\Models\Siswa;
+use App\Support\UniqueViolation;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -89,6 +90,21 @@ class AbsensiController extends Controller
             ]);
         }
 
+        // REQ-071: a partly filled session may be completed, but only with
+        // students who had joined by the session date. Otherwise a siswa moved
+        // in today could be marked hadir on last month's sessions.
+        if (Absensi::where('jadwal_id', $jadwal->id)->exists()) {
+            $belumBergabung = Siswa::whereIn('id', $siswaIds)
+                ->whereDate('tanggal_bergabung', '>', $tanggalJadwal)
+                ->orderBy('nama')->pluck('nama');
+            if ($belumBergabung->isNotEmpty()) {
+                throw ValidationException::withMessages([
+                    'absensi' => 'Siswa belum bergabung pada tanggal jadwal ('.Carbon::parse($tanggalJadwal)->format('d-m-Y').'): '
+                        .$belumBergabung->implode(', ').'.',
+                ]);
+            }
+        }
+
         DB::beginTransaction();
 
         try {
@@ -117,6 +133,9 @@ class AbsensiController extends Controller
             ], 201);
         } catch (\Throwable $e) {
             DB::rollBack();
+            // Two submissions for the same siswa at the same time: the unique
+            // index refuses the second one.
+            UniqueViolation::rethrow($e);
 
             return response()->json([
                 'message' => 'Failed to store absensi data.',
