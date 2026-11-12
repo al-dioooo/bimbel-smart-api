@@ -207,6 +207,7 @@ class ReportGajiController extends Controller
         $filters = $request->only(['mentor_id', 'search', 'bulan', 'from', 'to']);
         $rows = $this->gaji->rekap($filters)
             ->orderByDesc('tahun')->orderByDesc('bulan')->orderBy('mentor')
+            ->limit(Laporan::limit($request->query('format')))
             ->get()
             ->map(fn ($row) => [
                 $row->mentor,

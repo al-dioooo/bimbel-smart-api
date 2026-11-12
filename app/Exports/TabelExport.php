@@ -4,16 +4,22 @@ namespace App\Exports;
 
 use Maatwebsite\Excel\Concerns\FromArray;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
+use Maatwebsite\Excel\Concerns\WithCustomValueBinder;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithStyles;
 use Maatwebsite\Excel\Concerns\WithTitle;
+use PhpOffice\PhpSpreadsheet\Cell\StringValueBinder;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
 /**
  * One report table as a worksheet: a title block, the headings, the rows
  * and an optional total row. Shared by every report export.
+ *
+ * Text is always written as text: a value such as a mentor's own name
+ * starting with "=" must never become a formula in the admin's workbook.
+ * Numbers stay numbers.
  */
-class TabelExport implements FromArray, ShouldAutoSize, WithHeadings, WithStyles, WithTitle
+class TabelExport extends StringValueBinder implements FromArray, ShouldAutoSize, WithCustomValueBinder, WithHeadings, WithStyles, WithTitle
 {
     /**
      * @param  array<int, string>  $keterangan  lines under the title (filters, print date)
@@ -27,7 +33,10 @@ class TabelExport implements FromArray, ShouldAutoSize, WithHeadings, WithStyles
         private array $headings,
         private array $rows,
         private ?array $total = null,
-    ) {}
+    ) {
+        // false = do not turn numbers into text; formulas stay text (default).
+        $this->setNumericConversion(false);
+    }
 
     public function title(): string
     {
