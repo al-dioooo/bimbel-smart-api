@@ -7,6 +7,7 @@ use App\Http\Requests\UpdateJadwalRequest;
 use App\Models\Absensi;
 use App\Models\Jadwal;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -70,10 +71,25 @@ class JadwalController extends Controller
      */
     public function update(UpdateJadwalRequest $request, Jadwal $jadwal)
     {
+        // Moving a recorded session to another kelas would move its salary
+        // and free the old kelas for deletion (REQ-029).
+        if ($request->has('kelas_id') && (int) $request->input('kelas_id') !== (int) $jadwal->kelas_id
+            && Absensi::where('jadwal_id', $jadwal->id)->exists()) {
+            throw ValidationException::withMessages([
+                'kelas_id' => 'Kelas jadwal tidak dapat diubah karena jadwal ini sudah memiliki catatan absensi.',
+            ]);
+        }
+
         DB::beginTransaction();
 
         try {
             $jadwal->update($request->validated());
+
+            // REQ-045: attendance carries its jadwal's date.
+            if ($jadwal->wasChanged('tanggal')) {
+                Absensi::where('jadwal_id', $jadwal->id)
+                    ->update(['tanggal' => Carbon::parse($jadwal->tanggal)->toDateString()]);
+            }
 
             DB::commit();
 
@@ -115,6 +131,11 @@ class JadwalController extends Controller
             ], 200);
         } catch (\Throwable $e) {
             DB::rollBack();
+
+            // A row inserted after the check above: the foreign key refuses it.
+            if ($this->isForeignKeyViolation($e)) {
+                throw ValidationException::withMessages(['jadwal' => 'Jadwal tidak dapat dihapus karena sudah memiliki catatan absensi.']);
+            }
 
             return response()->json([
                 'message' => 'Failed to delete jadwal data.',

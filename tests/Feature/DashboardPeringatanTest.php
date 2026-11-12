@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Kelas;
+use App\Models\Siswa;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Tests\Support\BimbelFixture;
@@ -29,16 +30,52 @@ test('a mentor is warned about a past session without absensi (UC-16 2b)', funct
             'waktu_mulai' => '08:00',
             'waktu_selesai' => '10:00',
             'materi' => 'Materi uji',
+            'belum_lengkap' => false,
         ]]);
 });
 
-test('the warning disappears once the session is recorded', function () {
+test('the warning disappears once every student is recorded', function () {
+    Sanctum::actingAs($this->f->budi);
+    $this->postJson('/api/absensi', ['jadwal_id' => $this->f->jLalu->id, 'absensi' => [
+        ['siswa_id' => $this->f->siswa['Andi']->id, 'status' => 'H'],
+        ['siswa_id' => $this->f->siswa['Bela']->id, 'status' => 'S'],
+    ]])->assertCreated();
+
+    expect(($this->peringatan)($this->f->budi)['jumlah_absensi_belum_diisi'])->toBe(0);
+});
+
+test('a session missing a student who had joined by then is incomplete (REQ-071)', function () {
+    // Both joined well before J-LALU; only Andi is recorded.
+    Siswa::whereIn('id', [$this->f->siswa['Andi']->id, $this->f->siswa['Bela']->id])->update(['tanggal_bergabung' => '2026-01-05 09:00:00']);
     Sanctum::actingAs($this->f->budi);
     $this->postJson('/api/absensi', ['jadwal_id' => $this->f->jLalu->id, 'absensi' => [
         ['siswa_id' => $this->f->siswa['Andi']->id, 'status' => 'H'],
     ]])->assertCreated();
 
+    $p = ($this->peringatan)($this->f->budi);
+
+    expect($p['jumlah_absensi_belum_diisi'])->toBe(1)
+        ->and($p['absensi_belum_diisi'][0])->toMatchArray(['jadwal_id' => $this->f->jLalu->id, 'belum_lengkap' => true]);
+});
+
+test('a student who joined after the session does not make it incomplete', function () {
+    // Andi and Bela joined today; J-LALU (yesterday) has Andi only.
+    Sanctum::actingAs($this->f->budi);
+    $this->postJson('/api/absensi', ['jadwal_id' => $this->f->jLalu->id, 'absensi' => [
+        ['siswa_id' => $this->f->siswa['Andi']->id, 'status' => 'H'],
+    ]])->assertCreated();
+    Siswa::create(['nama' => 'Citra', 'kelas_id' => $this->f->k7a->id, 'tanggal_bergabung' => BimbelFixture::day(0)]);
+
     expect(($this->peringatan)($this->f->budi)['jumlah_absensi_belum_diisi'])->toBe(0);
+});
+
+test('a student who joined on the session day counts', function () {
+    $this->f->jadwal($this->f->k7b, BimbelFixture::day(-3), ['Gita' => 'h']);
+    Siswa::create(['nama' => 'Hana', 'kelas_id' => $this->f->k7b->id, 'tanggal_bergabung' => BimbelFixture::day(-3).' 18:00:00']);
+
+    $p = ($this->peringatan)($this->f->budi);
+
+    expect(collect($p['absensi_belum_diisi'])->where('belum_lengkap', true)->pluck('tanggal')->all())->toBe([BimbelFixture::day(-3)]);
 });
 
 test('a mentor sees today\'s sessions with their absensi state (UC-16 2a)', function () {

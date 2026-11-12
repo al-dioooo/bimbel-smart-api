@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Support\Sql;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Foundation\Validation\ValidatesRequests;
 use Illuminate\Pagination\AbstractPaginator;
@@ -51,6 +52,16 @@ abstract class Controller
     protected function mapRows($data, callable $fn)
     {
         return $data instanceof AbstractPaginator ? $data->through($fn) : $data->map($fn);
+    }
+
+    /**
+     * The database refused a delete because another row still references it
+     * (restrictOnDelete). PostgreSQL reports 23503, SQLite 23000.
+     */
+    protected function isForeignKeyViolation(\Throwable $e): bool
+    {
+        return $e instanceof QueryException && in_array((string) $e->getCode(), ['23503', '23000'], true)
+            && str_contains(strtolower($e->getMessage()), 'foreign key');
     }
 
     public function paginate($query, $limit = 15, $usePagination = true, $orderBy = 'created_at', $direction = 'desc')
