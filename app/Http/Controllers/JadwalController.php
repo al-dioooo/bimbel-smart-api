@@ -7,6 +7,7 @@ use App\Http\Requests\UpdateJadwalRequest;
 use App\Models\Absensi;
 use App\Models\Jadwal;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -83,6 +84,12 @@ class JadwalController extends Controller
 
         try {
             $jadwal->update($request->validated());
+
+            // REQ-045: attendance carries its jadwal's date.
+            if ($jadwal->wasChanged('tanggal')) {
+                Absensi::where('jadwal_id', $jadwal->id)
+                    ->update(['tanggal' => Carbon::parse($jadwal->tanggal)->toDateString()]);
+            }
 
             DB::commit();
 
