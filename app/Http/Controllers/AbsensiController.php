@@ -6,6 +6,7 @@ use App\Http\Requests\StoreAbsensiRequest;
 use App\Http\Requests\UpdateAbsensiRequest;
 use App\Models\Absensi;
 use App\Models\Jadwal;
+use App\Models\Kelas;
 use App\Models\Siswa;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -67,6 +68,10 @@ class AbsensiController extends Controller
         DB::beginTransaction();
 
         try {
+            // Pairs with the lock in AturanGajiController::destroy: the tarif
+            // of this kelas cannot be deleted while this attendance is stored.
+            Kelas::whereKey($jadwal->kelas_id)->sharedLock()->first();
+
             $tanggal = $validated['tanggal'] ?? $jadwal->tanggal;
 
             foreach ($validated['absensi'] as $row) {
