@@ -27,7 +27,7 @@ class MentorController extends Controller
         $data = $this->paginate($query, $request->query('limit') ?? 10, $request->query('paginate'), $request->query('order_by') ?? 'created_at', $request->query('direction') ?? 'desc');
 
         return response()->json([
-            'message' => 'Successfully get mentor data.',
+            'message' => 'Data mentor berhasil diambil.',
             'data' => $data,
         ]);
     }
@@ -59,14 +59,14 @@ class MentorController extends Controller
             DB::commit();
 
             return response()->json([
-                'message' => 'Successfully store mentor data.',
+                'message' => 'Data mentor berhasil ditambahkan.',
                 'data' => $mentor,
             ], 201);
         } catch (\Throwable $e) {
             DB::rollBack();
 
             return response()->json([
-                'message' => 'Failed to store mentor data.',
+                'message' => 'Data mentor gagal disimpan. Silakan coba lagi.',
                 'error' => $e->getMessage(),
             ], 500);
         }
@@ -80,7 +80,7 @@ class MentorController extends Controller
         $mentor->load(['user']);
 
         return response()->json([
-            'message' => 'Successfully get mentor data.',
+            'message' => 'Data mentor berhasil diambil.',
             'data' => $mentor,
         ]);
     }
@@ -115,14 +115,14 @@ class MentorController extends Controller
             DB::commit();
 
             return response()->json([
-                'message' => 'Successfully update mentor data.',
+                'message' => 'Data mentor berhasil diperbarui.',
                 'data' => $mentor->load('user'),
             ], 200);
         } catch (\Throwable $e) {
             DB::rollBack();
 
             return response()->json([
-                'message' => 'Failed to update mentor data.',
+                'message' => 'Data mentor gagal diperbarui. Silakan coba lagi.',
                 'error' => $e->getMessage(),
             ], 500);
         }
@@ -162,13 +162,13 @@ class MentorController extends Controller
             DB::commit();
 
             return response()->json([
-                'message' => 'Successfully delete mentor data.',
+                'message' => 'Data mentor berhasil dihapus.',
             ], 200);
         } catch (\Throwable $e) {
             DB::rollBack();
 
             return response()->json([
-                'message' => 'Failed to delete mentor data.',
+                'message' => 'Data mentor gagal dihapus. Silakan coba lagi.',
                 'error' => $e->getMessage(),
             ], 500);
         }

@@ -65,7 +65,7 @@ class DashboardController extends Controller
             ->sum('aturan_gaji.tarif');
 
         return response()->json([
-            'message' => 'Successfully get dashboard stats.',
+            'message' => 'Data dashboard berhasil diambil.',
             'data' => [
                 'periode' => [
                     'from' => $from->toDateString(),

@@ -45,7 +45,7 @@ abstract class Controller
         abort_unless(
             $mentorId !== null && $user?->mentor && (int) $mentorId === (int) $user->mentor->id,
             403,
-            'You do not have access to this record.'
+            'Anda tidak memiliki akses ke data ini.'
         );
     }
 

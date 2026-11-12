@@ -29,7 +29,7 @@ class AbsensiController extends Controller
         );
 
         return response()->json([
-            'message' => 'Successfully get absensi data.',
+            'message' => 'Data absensi berhasil diambil.',
             'data' => $data,
         ]);
     }
@@ -112,14 +112,14 @@ class AbsensiController extends Controller
                 ->get();
 
             return response()->json([
-                'message' => 'Successfully store absensi data.',
+                'message' => 'Absensi berhasil disimpan.',
                 'data' => $data,
             ], 201);
         } catch (\Throwable $e) {
             DB::rollBack();
 
             return response()->json([
-                'message' => 'Failed to store absensi data.',
+                'message' => 'Data absensi gagal disimpan. Silakan coba lagi.',
                 'error' => $e->getMessage(),
             ], 500);
         }
@@ -132,7 +132,7 @@ class AbsensiController extends Controller
         $absensi->load(['jadwal.kelas', 'siswa']);
 
         return response()->json([
-            'message' => 'Successfully get absensi data.',
+            'message' => 'Data absensi berhasil diambil.',
             'data' => $absensi,
         ]);
     }
@@ -154,14 +154,14 @@ class AbsensiController extends Controller
             DB::commit();
 
             return response()->json([
-                'message' => 'Successfully update absensi data.',
+                'message' => 'Data absensi berhasil diperbarui.',
                 'data' => $absensi,
             ], 200);
         } catch (\Throwable $e) {
             DB::rollBack();
 
             return response()->json([
-                'message' => 'Failed to update absensi data.',
+                'message' => 'Data absensi gagal diperbarui. Silakan coba lagi.',
                 'error' => $e->getMessage(),
             ], 500);
         }
@@ -179,13 +179,13 @@ class AbsensiController extends Controller
             DB::commit();
 
             return response()->json([
-                'message' => 'Successfully delete absensi data.',
+                'message' => 'Data absensi berhasil dihapus.',
             ], 200);
         } catch (\Throwable $e) {
             DB::rollBack();
 
             return response()->json([
-                'message' => 'Failed to delete absensi data.',
+                'message' => 'Data absensi gagal dihapus. Silakan coba lagi.',
                 'error' => $e->getMessage(),
             ], 500);
         }

@@ -22,7 +22,7 @@ class SiswaController extends Controller
         $data = $this->paginate($query, $request->query('limit') ?? 10, $request->query('paginate'), $request->query('order_by') ?? 'created_at', $request->query('direction') ?? 'desc');
 
         return response()->json([
-            'message' => 'Successfully get siswa data.',
+            'message' => 'Data siswa berhasil diambil.',
             'data' => $data,
         ]);
     }
@@ -40,14 +40,14 @@ class SiswaController extends Controller
             DB::commit();
 
             return response()->json([
-                'message' => 'Successfully store siswa$siswa data.',
+                'message' => 'Data siswa berhasil ditambahkan.',
                 'data' => $siswa,
             ], 201);
         } catch (\Throwable $e) {
             DB::rollBack();
 
             return response()->json([
-                'message' => 'Failed to store siswa data.',
+                'message' => 'Data siswa gagal disimpan. Silakan coba lagi.',
                 'error' => $e->getMessage(),
             ], 500);
         }
@@ -61,7 +61,7 @@ class SiswaController extends Controller
         $this->authorizeOwner($siswa->kelas?->mentor_id);
 
         return response()->json([
-            'message' => 'Successfully get siswa data.',
+            'message' => 'Data siswa berhasil diambil.',
             'data' => $siswa,
         ]);
     }
@@ -79,14 +79,14 @@ class SiswaController extends Controller
             DB::commit();
 
             return response()->json([
-                'message' => 'Successfully update siswa data.',
+                'message' => 'Data siswa berhasil diperbarui.',
                 'data' => $siswa,
             ], 200);
         } catch (\Throwable $e) {
             DB::rollBack();
 
             return response()->json([
-                'message' => 'Failed to update siswa data.',
+                'message' => 'Data siswa gagal diperbarui. Silakan coba lagi.',
                 'error' => $e->getMessage(),
             ], 500);
         }
@@ -112,13 +112,13 @@ class SiswaController extends Controller
             DB::commit();
 
             return response()->json([
-                'message' => 'Successfully delete siswa data.',
+                'message' => 'Data siswa berhasil dihapus.',
             ], 200);
         } catch (\Throwable $e) {
             DB::rollBack();
 
             return response()->json([
-                'message' => 'Failed to delete siswa data.',
+                'message' => 'Data siswa gagal dihapus. Silakan coba lagi.',
                 'error' => $e->getMessage(),
             ], 500);
         }

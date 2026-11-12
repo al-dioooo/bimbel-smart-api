@@ -25,7 +25,7 @@ class AturanGajiController extends Controller
         $data = $this->paginate($query, $request->query('limit') ?? 10, $request->query('paginate'), $request->query('order_by') ?? 'created_at', $request->query('direction') ?? 'desc');
 
         return response()->json([
-            'message' => 'Successfully get aturan gaji data.',
+            'message' => 'Data aturan gaji berhasil diambil.',
             'data' => $data,
         ]);
     }
@@ -51,14 +51,14 @@ class AturanGajiController extends Controller
             DB::commit();
 
             return response()->json([
-                'message' => 'Successfully store aturan gaji data.',
+                'message' => 'Data aturan gaji berhasil ditambahkan.',
                 'data' => $aturanGaji,
             ], 201);
         } catch (\Throwable $e) {
             DB::rollBack();
 
             return response()->json([
-                'message' => 'Failed to store aturan gaji data.',
+                'message' => 'Data aturan gaji gagal disimpan. Silakan coba lagi.',
                 'error' => $e->getMessage(),
             ], 500);
         }
@@ -70,7 +70,7 @@ class AturanGajiController extends Controller
     public function show(AturanGaji $aturanGaji)
     {
         return response()->json([
-            'message' => 'Successfully get aturan gaji data.',
+            'message' => 'Data aturan gaji berhasil diambil.',
             'data' => $aturanGaji,
         ]);
     }
@@ -100,14 +100,14 @@ class AturanGajiController extends Controller
             DB::commit();
 
             return response()->json([
-                'message' => 'Successfully update aturan gaji data.',
+                'message' => 'Data aturan gaji berhasil diperbarui.',
                 'data' => $aturanGaji,
             ], 200);
         } catch (\Throwable $e) {
             DB::rollBack();
 
             return response()->json([
-                'message' => 'Failed to update aturan gaji data.',
+                'message' => 'Data aturan gaji gagal diperbarui. Silakan coba lagi.',
                 'error' => $e->getMessage(),
             ], 500);
         }
@@ -138,13 +138,13 @@ class AturanGajiController extends Controller
             DB::commit();
 
             return response()->json([
-                'message' => 'Successfully delete aturan gaji data.',
+                'message' => 'Data aturan gaji berhasil dihapus.',
             ], 200);
         } catch (\Throwable $e) {
             DB::rollBack();
 
             return response()->json([
-                'message' => 'Failed to delete aturan gaji data.',
+                'message' => 'Data aturan gaji gagal dihapus. Silakan coba lagi.',
                 'error' => $e->getMessage(),
             ], 500);
         }

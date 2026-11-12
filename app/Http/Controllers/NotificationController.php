@@ -27,7 +27,7 @@ class NotificationController extends Controller
         $data = $query->get();
 
         return response()->json([
-            'message' => 'Successfully get notification data.',
+            'message' => 'Data notifikasi berhasil diambil.',
             'data' => $data,
         ]);
     }
@@ -45,14 +45,14 @@ class NotificationController extends Controller
             DB::commit();
 
             return response()->json([
-                'message' => 'Successfully store notification data.',
+                'message' => 'Data notifikasi berhasil ditambahkan.',
                 'data' => $notification,
             ], 201);
         } catch (\Throwable $e) {
             DB::rollBack();
 
             return response()->json([
-                'message' => 'Failed to store notification data.',
+                'message' => 'Data notifikasi gagal disimpan. Silakan coba lagi.',
                 'error' => $e->getMessage(),
             ], 500);
         }
@@ -66,7 +66,7 @@ class NotificationController extends Controller
         $this->authorizeRecipient($request, $notification);
 
         return response()->json([
-            'message' => 'Successfully get notification data.',
+            'message' => 'Data notifikasi berhasil diambil.',
             'data' => $notification,
         ]);
     }
@@ -91,14 +91,14 @@ class NotificationController extends Controller
             DB::commit();
 
             return response()->json([
-                'message' => 'Successfully update notification data.',
+                'message' => 'Data notifikasi berhasil diperbarui.',
                 'data' => $notification,
             ], 200);
         } catch (\Throwable $e) {
             DB::rollBack();
 
             return response()->json([
-                'message' => 'Failed to update notification data.',
+                'message' => 'Data notifikasi gagal diperbarui. Silakan coba lagi.',
                 'error' => $e->getMessage(),
             ], 500);
         }
@@ -119,13 +119,13 @@ class NotificationController extends Controller
             DB::commit();
 
             return response()->json([
-                'message' => 'Successfully delete notification data.',
+                'message' => 'Data notifikasi berhasil dihapus.',
             ], 200);
         } catch (\Throwable $e) {
             DB::rollBack();
 
             return response()->json([
-                'message' => 'Failed to delete notification data.',
+                'message' => 'Data notifikasi gagal dihapus. Silakan coba lagi.',
                 'error' => $e->getMessage(),
             ], 500);
         }
@@ -139,7 +139,7 @@ class NotificationController extends Controller
         abort_unless(
             $user->isAdmin() || (int) $notification->user_id === (int) $user->id,
             403,
-            'You do not have access to this notification.'
+            'Anda tidak memiliki akses ke notifikasi ini.'
         );
     }
 }
