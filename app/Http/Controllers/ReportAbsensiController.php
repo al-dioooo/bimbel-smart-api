@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ReportFilterRequest;
+use App\Support\Sql;
 use Illuminate\Support\Facades\DB;
 
 class ReportAbsensiController extends Controller
@@ -37,8 +38,8 @@ class ReportAbsensiController extends Controller
 
         if ($search = $request->query('search')) {
             $query->where(function ($q) use ($search) {
-                $q->where('kelas.nama', 'like', '%'.$search.'%')
-                    ->orWhere('users.name', 'like', '%'.$search.'%');
+                $q->where('kelas.nama', Sql::like(), '%'.$search.'%')
+                    ->orWhere('users.name', Sql::like(), '%'.$search.'%');
             });
         }
 
@@ -97,7 +98,7 @@ class ReportAbsensiController extends Controller
             ->groupBy('siswa.id', 'siswa.nama');
 
         if ($search = $request->query('search')) {
-            $query->where('siswa.nama', 'like', '%'.$search.'%');
+            $query->where('siswa.nama', Sql::like(), '%'.$search.'%');
         }
 
         if (($from = $request->query('from')) && ($to = $request->query('to'))) {
