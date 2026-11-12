@@ -8,6 +8,7 @@ use App\Models\Absensi;
 use App\Models\Jadwal;
 use App\Models\Kelas;
 use App\Models\Siswa;
+use App\Support\UniqueViolation;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -35,32 +36,71 @@ class AbsensiController extends Controller
     }
 
     /**
-     * Bulk upsert for one jadwal — the attendance grid saves a whole column at once.
+     * Records the attendance of one jadwal; the grid sends a column at once.
      *
      * The UI works in uppercase (H/S/I/A); the column is a lowercase char(1).
      * Normalise here so the boundary is the only place that knows about both.
+     *
+     * Recording is insert-only (UC-08): a siswa that already has a row on this
+     * jadwal is "input ganda", and corrections go through the admin edit
+     * (UC-09). New rows, e.g. for a siswa who joined later, are still accepted.
      */
     public function store(StoreAbsensiRequest $request)
     {
         $validated = $request->validated();
         $jadwal = Jadwal::with('kelas')->findOrFail($validated['jadwal_id']);
+        $tanggalJadwal = Carbon::parse($jadwal->tanggal)->toDateString();
 
         $this->authorizeOwner($jadwal->kelas?->mentor_id);
 
         // Each `hadir` pays the kelas tarif, so mentors may not pre-fill
-        // sessions that have not happened, nor mark students of another kelas.
-        if (! $request->user()->isAdmin()) {
-            if (Carbon::parse($jadwal->tanggal)->startOfDay()->isAfter(Carbon::today())) {
-                throw ValidationException::withMessages([
-                    'jadwal_id' => 'Absensi belum bisa diisi untuk jadwal yang akan datang.',
-                ]);
-            }
+        // sessions that have not happened.
+        if (! $request->user()->isAdmin() && Carbon::parse($tanggalJadwal)->isAfter(Carbon::today())) {
+            throw ValidationException::withMessages([
+                'jadwal_id' => 'Absensi belum bisa diisi untuk jadwal yang akan datang.',
+            ]);
+        }
 
-            $siswaIds = collect($validated['absensi'])->pluck('siswa_id')->unique();
-            $inKelas = Siswa::whereIn('id', $siswaIds)->where('kelas_id', $jadwal->kelas_id)->count();
-            if ($inKelas !== $siswaIds->count()) {
+        // REQ-045: attendance belongs to its jadwal, so it carries the jadwal's
+        // date. A different client date would move it to another period.
+        if (isset($validated['tanggal']) && Carbon::parse($validated['tanggal'])->toDateString() !== $tanggalJadwal) {
+            throw ValidationException::withMessages([
+                'tanggal' => 'Tanggal absensi harus sama dengan tanggal jadwal ('.Carbon::parse($tanggalJadwal)->format('d-m-Y').').',
+            ]);
+        }
+
+        // REQ-042: only students of the jadwal's kelas, whoever records it.
+        $siswaIds = collect($validated['absensi'])->pluck('siswa_id')->unique();
+        $inKelas = Siswa::whereIn('id', $siswaIds)->where('kelas_id', $jadwal->kelas_id)->count();
+        if ($inKelas !== $siswaIds->count()) {
+            throw ValidationException::withMessages([
+                'absensi' => 'Ada siswa yang tidak terdaftar di kelas ini.',
+            ]);
+        }
+
+        // UC-06 4a / UC-08 2a: no second record for the same siswa and session.
+        $sudahDiisi = Absensi::with('siswa')
+            ->where('jadwal_id', $jadwal->id)
+            ->whereIn('siswa_id', $siswaIds)
+            ->get();
+        if ($sudahDiisi->isNotEmpty()) {
+            throw ValidationException::withMessages([
+                'absensi' => 'Absensi sudah diisi untuk '.$sudahDiisi->pluck('siswa.nama')->sort()->implode(', ')
+                    .'. Perubahan dilakukan oleh admin melalui Ubah Absensi.',
+            ]);
+        }
+
+        // REQ-071: a partly filled session may be completed, but only with
+        // students who had joined by the session date. Otherwise a siswa moved
+        // in today could be marked hadir on last month's sessions.
+        if (Absensi::where('jadwal_id', $jadwal->id)->exists()) {
+            $belumBergabung = Siswa::whereIn('id', $siswaIds)
+                ->whereDate('tanggal_bergabung', '>', $tanggalJadwal)
+                ->orderBy('nama')->pluck('nama');
+            if ($belumBergabung->isNotEmpty()) {
                 throw ValidationException::withMessages([
-                    'absensi' => 'Ada siswa yang tidak terdaftar di kelas ini.',
+                    'absensi' => 'Siswa belum bergabung pada tanggal jadwal ('.Carbon::parse($tanggalJadwal)->format('d-m-Y').'): '
+                        .$belumBergabung->implode(', ').'.',
                 ]);
             }
         }
@@ -72,19 +112,13 @@ class AbsensiController extends Controller
             // of this kelas cannot be deleted while this attendance is stored.
             Kelas::whereKey($jadwal->kelas_id)->sharedLock()->first();
 
-            $tanggal = $validated['tanggal'] ?? $jadwal->tanggal;
-
             foreach ($validated['absensi'] as $row) {
-                Absensi::updateOrCreate(
-                    [
-                        'jadwal_id' => $jadwal->id,
-                        'siswa_id' => $row['siswa_id'],
-                    ],
-                    [
-                        'tanggal' => $tanggal,
-                        'status' => strtolower($row['status']),
-                    ]
-                );
+                Absensi::create([
+                    'jadwal_id' => $jadwal->id,
+                    'siswa_id' => $row['siswa_id'],
+                    'tanggal' => $tanggalJadwal,
+                    'status' => strtolower($row['status']),
+                ]);
             }
 
             DB::commit();
@@ -99,6 +133,9 @@ class AbsensiController extends Controller
             ], 201);
         } catch (\Throwable $e) {
             DB::rollBack();
+            // Two submissions for the same siswa at the same time: the unique
+            // index refuses the second one.
+            UniqueViolation::rethrow($e);
 
             return response()->json([
                 'message' => 'Failed to store absensi data.',

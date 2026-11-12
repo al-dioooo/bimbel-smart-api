@@ -153,8 +153,12 @@ test('mentors save attendance only for their own past jadwal and their own stude
     $a = $this->a;
     $row = fn ($siswa) => ['absensi' => [['siswa_id' => $siswa->id, 'status' => 'S']]];
 
-    $this->postJson('/api/absensi', ['jadwal_id' => $a->past->id] + $row($a->siswa))->assertCreated();
-    expect($a->absensi->fresh()->status)->toBe('s');
+    // A siswa without a record on the session is saved; the one already
+    // recorded is "input ganda" and keeps its status (UC-08 2a).
+    $baru = Siswa::create(['nama' => 'Siswa a2', 'kelas_id' => $a->kelas->id, 'tanggal_bergabung' => now()->subMonth()]);
+    $this->postJson('/api/absensi', ['jadwal_id' => $a->past->id] + $row($baru))->assertCreated();
+    $this->postJson('/api/absensi', ['jadwal_id' => $a->past->id] + $row($a->siswa))->assertUnprocessable()->assertJsonValidationErrors('absensi');
+    expect($a->absensi->fresh()->status)->toBe('h');
 
     $this->postJson('/api/absensi', ['jadwal_id' => $this->b->past->id] + $row($this->b->siswa))->assertForbidden();
     $this->postJson('/api/absensi', ['jadwal_id' => $a->future->id] + $row($a->siswa))->assertUnprocessable()->assertJsonValidationErrors('jadwal_id');
