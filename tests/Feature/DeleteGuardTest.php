@@ -35,3 +35,18 @@ test('a jadwal without absensi can be deleted', function () {
 
     expect(Jadwal::find($this->f->jDepan->id))->toBeNull();
 });
+
+test('a kelas with jadwal cannot be deleted (REQ-029)', function () {
+    $this->deleteJson("/api/kelas/{$this->f->k7a->id}")
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['kelas' => 'masih memiliki jadwal']);
+
+    expect(Kelas::find($this->f->k7a->id))->not->toBeNull()
+        ->and(Jadwal::where('kelas_id', $this->f->k7a->id)->count())->toBe(4);
+});
+
+test('a kelas without jadwal can be deleted', function () {
+    $this->deleteJson("/api/kelas/{$this->f->k7b->id}")->assertOk();
+
+    expect(Kelas::find($this->f->k7b->id))->toBeNull();
+});
