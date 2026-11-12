@@ -2,6 +2,7 @@
 
 use App\Notifications\ResetPasswordNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Laravel\Sanctum\PersonalAccessToken;
 use Tests\Support\BimbelFixture;
@@ -73,10 +74,11 @@ describe('reset password (REQ-015)', function () {
             'password' => 'sandi-baru-uji', 'password_confirmation' => 'sandi-baru-uji',
         ])->assertOk()->assertJsonPath('message', 'Kata sandi berhasil diatur ulang. Silakan login dengan kata sandi baru.');
 
+        // Every session opened before the reset ended, before any new login.
+        expect(PersonalAccessToken::findToken($old))->toBeNull();
+
         $this->postJson('/api/login', ['identifier' => 'budi', 'password' => 'sandi-baru-uji'])->assertOk();
         $this->postJson('/api/login', ['identifier' => 'budi', 'password' => BimbelFixture::PASSWORD])->assertUnauthorized();
-        // Every session opened before the reset ended (the login above is the only token).
-        expect(PersonalAccessToken::findToken($old))->toBeNull();
     });
 
     test('a token is used once', function () {
@@ -113,4 +115,51 @@ describe('reset password (REQ-015)', function () {
         [['password' => 'pendek', 'password_confirmation' => 'pendek'], 'password'],
         [['password' => 'sandi-baru-uji', 'password_confirmation' => 'sandi-baru-uji', 'token' => ''], 'token'],
     ]);
+});
+
+describe('no reset link in the logs (review #32)', function () {
+    beforeEach(function () {
+        $this->app['env'] = 'production';
+    });
+
+    test('a log or array mailer outside local/testing answers 503 and sends nothing', function (string $mailer) {
+        config(['mail.default' => $mailer]);
+
+        $this->postJson('/api/forgot-password', ['email' => 'budi@uji.test'])
+            ->assertStatus(503)
+            ->assertJsonPath('message', fn ($m) => str_contains($m, 'pengiriman email belum dikonfigurasi'));
+
+        Notification::assertNothingSent();
+        expect(DB::table('password_reset_tokens')->count())->toBe(0);
+    })->with(['log', 'array']);
+
+    test('a failover that falls back to the log is refused too', function () {
+        config(['mail.default' => 'failover', 'mail.mailers.failover' => ['transport' => 'failover', 'mailers' => ['smtp', 'log']]]);
+
+        $this->postJson('/api/forgot-password', ['email' => 'budi@uji.test'])->assertStatus(503);
+    });
+
+    test('an SMTP mailer sends the link', function () {
+        config(['mail.default' => 'smtp']);
+
+        $this->postJson('/api/forgot-password', ['email' => 'budi@uji.test'])->assertOk();
+        Notification::assertSentTo($this->f->budi, ResetPasswordNotification::class);
+    });
+});
+
+test('the email is matched whatever its case, and the stored address is used', function () {
+    $this->postJson('/api/forgot-password', ['email' => 'BUDI@Uji.Test'])->assertOk();
+
+    $token = null;
+    Notification::assertSentTo($this->f->budi, ResetPasswordNotification::class, function ($n) use (&$token) {
+        $token = $n->token;
+
+        return true;
+    });
+
+    $this->postJson('/api/reset-password', [
+        'email' => 'Budi@UJI.test', 'token' => $token,
+        'password' => 'sandi-baru-uji', 'password_confirmation' => 'sandi-baru-uji',
+    ])->assertOk();
+    $this->postJson('/api/login', ['identifier' => 'budi', 'password' => 'sandi-baru-uji'])->assertOk();
 });
