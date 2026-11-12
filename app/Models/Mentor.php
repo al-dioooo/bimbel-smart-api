@@ -29,6 +29,19 @@ class Mentor extends Model
         'alamat',
     ];
 
+    /**
+     * §6.6 (N1): NIK and NPWP are encrypted at rest with APP_KEY. Rotating
+     * the key requires listing the old one in APP_PREVIOUS_KEYS, or these
+     * values can no longer be read.
+     */
+    protected function casts(): array
+    {
+        return [
+            'nik' => 'encrypted',
+            'npwp' => 'encrypted',
+        ];
+    }
+
     public function user()
     {
         return $this->belongsTo(User::class);
