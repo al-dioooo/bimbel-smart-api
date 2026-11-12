@@ -61,7 +61,8 @@ Route::group(['middleware' => ['auth:sanctum', 'mentor.scope']], function () {
     // these are plain routes rather than model-bound apiResources.
     Route::get('report/gaji/{mentor}', [ReportGajiController::class, 'show'])->whereNumber('mentor');
     Route::get('report/absensi', [ReportAbsensiController::class, 'index']);
-    Route::get('report/absensi/{kelas}', [ReportAbsensiController::class, 'show']);
+    Route::get('report/absensi/export', [ReportAbsensiController::class, 'export']);
+    Route::get('report/absensi/{kelas}', [ReportAbsensiController::class, 'show'])->whereNumber('kelas');
 
     // Notifications — each user reads and marks their own.
     Route::apiResource('notification', NotificationController::class)->only(['index', 'show', 'update', 'destroy'])->parameters([
