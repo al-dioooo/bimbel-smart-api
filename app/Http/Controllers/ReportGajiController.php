@@ -9,9 +9,11 @@ use App\Models\Notification;
 use App\Models\PenyesuaianGaji;
 use App\Models\PeriodeGaji;
 use App\Services\GajiCalculator;
+use App\Support\Laporan;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class ReportGajiController extends Controller
@@ -53,6 +55,10 @@ class ReportGajiController extends Controller
     public function show(ReportFilterRequest $request, $mentorId)
     {
         $this->authorizeOwner($mentorId);
+
+        if ($request->query('format')) {
+            return $this->slip($request, (int) $mentorId);
+        }
 
         $rows = $this->gaji->rincianKelas((int) $mentorId, $request->only(['bulan', 'from', 'to']))
             ->map(fn ($row) => self::numbers($row, ['kelas_id', 'tahun', 'bulan', 'jumlah_kehadiran'], ['tarif', 'nominal']));
@@ -164,6 +170,80 @@ class ReportGajiController extends Controller
             'message' => "Proses gaji untuk periode {$label} telah berhasil difinalisasi.",
             'data' => $this->gaji->periode($bulan),
         ], 201);
+    }
+
+    /**
+     * REQ-061: the salary slip of one mentor for one month as a PDF, for the
+     * admin (any mentor) and the mentor (own, checked in show()). Without
+     * ?bulan= it is the current month.
+     */
+    private function slip(ReportFilterRequest $request, int $mentorId)
+    {
+        if ($request->query('format') !== 'pdf') {
+            throw ValidationException::withMessages(['format' => 'Slip gaji hanya tersedia dalam format pdf.']);
+        }
+
+        $mentor = Mentor::with('user')->findOrFail($mentorId);
+        $bulan = $request->query('bulan') ?? Carbon::today()->format('Y-m');
+        $slip = $this->gaji->slip($mentorId, (string) $mentor->user?->name, $bulan);
+        $slip['periode']['finalized_label'] = $slip['periode']['finalized_at']
+            ? Carbon::parse($slip['periode']['finalized_at'])->locale('id')->translatedFormat('j F Y')
+            : null;
+
+        return Laporan::pdf('pdf.slip-gaji', $slip + [
+            'dicetak' => Carbon::now()->locale('id')->translatedFormat('j F Y H:i'),
+        ])->download('slip-gaji-'.Str::slug($slip['mentor']['mentor']).'-'.$bulan.'.pdf');
+    }
+
+    /**
+     * Laporan gaji as PDF or Excel with the same filters as index(): one row
+     * per mentor per month with gaji pokok, bonus, potongan, total, status.
+     */
+    public function export(ReportFilterRequest $request)
+    {
+        $request->validate(['format' => ['required', 'in:'.implode(',', Laporan::FORMATS)]], [
+            'format.required' => 'Pilih format unduhan: pdf atau xlsx.',
+            'format.in' => 'Format unduhan harus pdf atau xlsx.',
+        ]);
+
+        $filters = $request->only(['mentor_id', 'search', 'bulan', 'from', 'to']);
+        $rows = $this->gaji->rekap($filters)
+            ->orderByDesc('tahun')->orderByDesc('bulan')->orderBy('mentor')
+            ->limit(Laporan::limit($request->query('format')))
+            ->get()
+            ->map(fn ($row) => [
+                $row->mentor,
+                PeriodeGaji::labelOf(sprintf('%04d-%02d-01', $row->tahun, $row->bulan)),
+                (int) $row->total_kehadiran_murid,
+                (float) $row->gaji_pokok,
+                (float) $row->bonus,
+                (float) $row->potongan,
+                (float) $row->nominal,
+                $row->status === 'final' ? 'Final' : 'Draf',
+            ])->all();
+
+        $sum = fn (int $i) => array_sum(array_column($rows, $i));
+
+        return Laporan::table(
+            $request->query('format'),
+            'laporan-gaji'.(isset($filters['bulan']) ? '-'.$filters['bulan'] : ''),
+            'Laporan Gaji Guru/Mentor',
+            self::keterangan($filters),
+            ['Guru/Mentor', 'Periode', 'Kehadiran', 'Gaji Pokok', 'Bonus', 'Potongan', 'Total', 'Status'],
+            $rows,
+            ['Total', '', $sum(2), $sum(3), $sum(4), $sum(5), $sum(6), ''],
+            [3, 4, 5, 6],
+        );
+    }
+
+    /** The active filters, in words, for the export header. */
+    private static function keterangan(array $filters): array
+    {
+        return array_values(array_filter([
+            isset($filters['bulan']) ? 'Periode: '.PeriodeGaji::labelOf($filters['bulan'].'-01') : null,
+            isset($filters['from'], $filters['to']) ? "Tanggal: {$filters['from']} s.d. {$filters['to']}" : null,
+            isset($filters['search']) ? "Pencarian: {$filters['search']}" : null,
+        ])) ?: ['Periode: semua'];
     }
 
     /**

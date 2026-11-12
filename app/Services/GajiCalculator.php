@@ -141,25 +141,26 @@ class GajiCalculator
      * Everything UC-10 shows for one month: per mentor the sessions, tarif,
      * adjustments and total, the grand total, and how many past sessions of
      * the month still have no absensi (UC-10 3a). A finalized month comes
-     * from its snapshot.
+     * from its snapshot. With $mentorId only that mentor is computed.
      */
-    public function periode(string $bulan): array
+    public function periode(string $bulan, ?int $mentorId = null): array
     {
         $periode = PeriodeGaji::with('finalizer')->whereDate('periode', PenyesuaianGaji::periodeOf($bulan))->first();
 
         $mentor = $periode
-            ? $periode->reports()->orderBy('mentor_nama')->get()->map(fn (ReportGaji $report) => [
-                'mentor_id' => $report->mentor_id,
-                'mentor' => $report->mentor_nama,
-                'total_kehadiran' => $report->jumlah_kehadiran,
-                'gaji_pokok' => $report->gaji_pokok,
-                'bonus' => $report->bonus,
-                'potongan' => $report->potongan,
-                'total' => $report->total_gaji,
-                'rincian' => $report->rincian['kelas'] ?? [],
-                'penyesuaian' => $report->rincian['penyesuaian'] ?? [],
-            ])
-            : $this->rekap(['bulan' => $bulan])->orderBy('mentor')->get()->map(fn ($row) => [
+            ? $periode->reports()->when($mentorId, fn ($query) => $query->where('mentor_id', $mentorId))
+                ->orderBy('mentor_nama')->get()->map(fn (ReportGaji $report) => [
+                    'mentor_id' => $report->mentor_id,
+                    'mentor' => $report->mentor_nama,
+                    'total_kehadiran' => $report->jumlah_kehadiran,
+                    'gaji_pokok' => $report->gaji_pokok,
+                    'bonus' => $report->bonus,
+                    'potongan' => $report->potongan,
+                    'total' => $report->total_gaji,
+                    'rincian' => $report->rincian['kelas'] ?? [],
+                    'penyesuaian' => $report->rincian['penyesuaian'] ?? [],
+                ])
+            : $this->rekap(array_filter(['bulan' => $bulan, 'mentor_id' => $mentorId]))->orderBy('mentor')->get()->map(fn ($row) => [
                 'mentor_id' => (int) $row->mentor_id,
                 'mentor' => $row->mentor,
                 'total_kehadiran' => (int) $row->total_kehadiran_murid,
@@ -196,6 +197,27 @@ class GajiCalculator
             ],
             'jadwal_belum_diabsen' => $this->jadwalBelumDiabsen($bulan),
         ];
+    }
+
+    /**
+     * One mentor's salary for one month, as on the slip (REQ-059 to REQ-061):
+     * the period block and the mentor's row of periode(); zeros when the
+     * mentor had nothing that month.
+     *
+     * @return array{periode: array<string, mixed>, mentor: array<string, mixed>}
+     */
+    public function slip(int $mentorId, string $mentorNama, string $bulan): array
+    {
+        // Only this mentor is computed; the month totals are not on the slip.
+        $periode = $this->periode($bulan, $mentorId);
+        unset($periode['total']);
+        $mentor = collect($periode['mentor'])->firstWhere('mentor_id', $mentorId) ?? [
+            'mentor_id' => $mentorId, 'mentor' => $mentorNama, 'total_kehadiran' => 0,
+            'gaji_pokok' => 0.0, 'bonus' => 0.0, 'potongan' => 0.0, 'total' => 0.0, 'rincian' => [], 'penyesuaian' => [],
+        ];
+        unset($periode['mentor']);
+
+        return ['periode' => $periode, 'mentor' => $mentor];
     }
 
     /**

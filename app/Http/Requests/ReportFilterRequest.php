@@ -25,6 +25,7 @@ class ReportFilterRequest extends FormRequest
             'from' => ['nullable', 'date_format:Y-m-d', 'required_with:to'],
             'to' => ['nullable', 'date_format:Y-m-d', 'required_with:from', 'after_or_equal:from'],
             'search' => ['nullable', 'string', 'max:255'],
+            'format' => ['nullable', 'in:pdf,xlsx'],
         ];
     }
 
@@ -37,6 +38,7 @@ class ReportFilterRequest extends FormRequest
             'from.date_format' => 'Tanggal awal (from) harus berformat YYYY-MM-DD.',
             'to.date_format' => 'Tanggal akhir (to) harus berformat YYYY-MM-DD.',
             'to.after_or_equal' => 'Tanggal akhir (to) tidak boleh sebelum tanggal awal (from).',
+            'format.in' => 'Format unduhan harus pdf atau xlsx.',
         ];
     }
 }
