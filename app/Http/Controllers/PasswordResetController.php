@@ -18,19 +18,29 @@ class PasswordResetController extends Controller
 {
     public function forgot(Request $request)
     {
+        // A log or array mailer would write the reset link into the logs,
+        // where anyone who reads them could reset any account.
+        if ($this->mailerWouldLeakLink()) {
+            return response()->json([
+                'message' => 'Fitur lupa kata sandi belum dapat digunakan karena pengiriman email belum dikonfigurasi. '
+                    .'Silakan hubungi admin untuk mengatur ulang kata sandi.',
+            ], 503);
+        }
+
         $request->validate(
             ['email' => ['required', 'email', 'max:255']],
             ['email.required' => 'Email wajib diisi.', 'email.email' => 'Format email tidak valid.'],
         );
 
         // §4.1.2 f: an unregistered address gets a relevant message.
-        if (! User::where('email', $request->input('email'))->exists()) {
+        $user = $this->findByEmail($request->input('email'));
+        if ($user === null) {
             throw ValidationException::withMessages([
                 'email' => 'Email tidak terdaftar.',
             ]);
         }
 
-        $status = Password::sendResetLink($request->only('email'));
+        $status = Password::sendResetLink(['email' => $user->email]);
 
         if ($status === Password::RESET_THROTTLED) {
             throw ValidationException::withMessages([
@@ -62,8 +72,11 @@ class PasswordResetController extends Controller
             'password.confirmed' => 'Konfirmasi kata sandi tidak cocok.',
         ]);
 
+        // The broker matches the stored address exactly.
+        $email = $this->findByEmail($request->input('email'))?->email ?? $request->input('email');
+
         $status = Password::reset(
-            $request->only('email', 'token', 'password', 'password_confirmation'),
+            ['email' => $email] + $request->only('token', 'password', 'password_confirmation'),
             function (User $user, string $password) {
                 $user->forceFill(['password' => Hash::make($password)])->save();
 
@@ -85,5 +98,36 @@ class PasswordResetController extends Controller
         return response()->json([
             'message' => 'Kata sandi berhasil diatur ulang. Silakan login dengan kata sandi baru.',
         ]);
+    }
+
+    /** Emails are compared case-insensitively (PostgreSQL compares exactly). */
+    private function findByEmail(string $email): ?User
+    {
+        return User::whereRaw('LOWER(email) = ?', [mb_strtolower(trim($email))])->first();
+    }
+
+    /**
+     * True outside local/testing when the mailer, or a fallback of it, only
+     * writes mail to the log or to memory.
+     */
+    private function mailerWouldLeakLink(): bool
+    {
+        if (app()->environment(['local', 'testing'])) {
+            return false;
+        }
+
+        $mailer = (string) config('mail.default');
+        $transport = config("mail.mailers.{$mailer}.transport", $mailer);
+        $mailers = in_array($transport, ['failover', 'roundrobin'], true)
+            ? (array) config("mail.mailers.{$mailer}.mailers", [])
+            : [$mailer];
+
+        foreach ($mailers as $name) {
+            if (in_array(config("mail.mailers.{$name}.transport", $name), ['log', 'array'], true)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

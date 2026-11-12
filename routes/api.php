@@ -18,9 +18,9 @@ use Illuminate\Support\Facades\Route;
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/logout', [AuthController::class, 'logout']);
 
-// Lupa kata sandi (REQ-012–REQ-015). Throttled per IP on top of the broker's
-// own one-minute throttle per email.
-Route::middleware('throttle:6,1')->group(function () {
+// Lupa kata sandi (REQ-012–REQ-015). Throttled per IP and per email
+// (AppServiceProvider) on top of the broker's one-minute throttle per email.
+Route::middleware('throttle:lupa-sandi')->group(function () {
     Route::post('/forgot-password', [PasswordResetController::class, 'forgot']);
     Route::post('/reset-password', [PasswordResetController::class, 'reset']);
 });
