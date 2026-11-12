@@ -7,6 +7,8 @@ use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Foundation\Validation\ValidatesRequests;
 use Illuminate\Pagination\AbstractPaginator;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 
 abstract class Controller
 {
@@ -52,6 +54,21 @@ abstract class Controller
     protected function mapRows($data, callable $fn)
     {
         return $data instanceof AbstractPaginator ? $data->through($fn) : $data->map($fn);
+    }
+
+    /** paginate() for rows already in memory, with the same parameters. */
+    protected function paginateCollection(Collection $rows, $limit = 15, $usePagination = true)
+    {
+        if ($usePagination === 'false' || $usePagination === false) {
+            return $rows->values();
+        }
+
+        $limit = max(1, (int) $limit);
+        $page = LengthAwarePaginator::resolveCurrentPage();
+
+        return (new LengthAwarePaginator($rows->forPage($page, $limit)->values(), $rows->count(), $limit, $page))
+            ->setPath('')
+            ->withQueryString();
     }
 
     /**

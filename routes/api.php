@@ -59,7 +59,7 @@ Route::group(['middleware' => ['auth:sanctum', 'mentor.scope']], function () {
 
     // Report — both are derived on read (there is no report_absensi table), so
     // these are plain routes rather than model-bound apiResources.
-    Route::get('report/gaji/{mentor}', [ReportGajiController::class, 'show']);
+    Route::get('report/gaji/{mentor}', [ReportGajiController::class, 'show'])->whereNumber('mentor');
     Route::get('report/absensi', [ReportAbsensiController::class, 'index']);
     Route::get('report/absensi/{kelas}', [ReportAbsensiController::class, 'show']);
 
@@ -97,6 +97,10 @@ Route::group(['middleware' => ['auth:sanctum', 'mentor.scope']], function () {
         ]);
 
         Route::get('report/gaji', [ReportGajiController::class, 'index']);
+
+        // UC-10: preview a month's payroll, then finalize and lock it.
+        Route::get('report/gaji/periode/{bulan}', [ReportGajiController::class, 'periode']);
+        Route::post('report/gaji', [ReportGajiController::class, 'finalize']);
 
         // REQ-064: manual bonus / potongan per mentor per month.
         Route::apiResource('penyesuaian-gaji', PenyesuaianGajiController::class);
