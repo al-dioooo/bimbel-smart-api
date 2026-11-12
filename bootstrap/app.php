@@ -43,9 +43,21 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(fn (AuthenticationException $e, Request $request) => $api($request)
             ? response()->json(['message' => 'Sesi Anda telah berakhir atau Anda belum login. Silakan login kembali.'], 401)
             : null);
-        $exceptions->render(fn (NotFoundHttpException $e, Request $request) => $api($request)
-            ? response()->json(['message' => $e->getPrevious() instanceof ModelNotFoundException ? 'Data tidak ditemukan.' : 'Alamat tidak ditemukan.'], 404)
-            : null);
+        // Only the framework's own 404 texts are replaced; a specific message
+        // such as abort(404, 'Kelas tidak ditemukan.') is kept (REQ-028, REQ-039).
+        $exceptions->render(function (NotFoundHttpException $e, Request $request) use ($api) {
+            if (! $api($request)) {
+                return null;
+            }
+
+            $message = match (true) {
+                $e->getPrevious() instanceof ModelNotFoundException => 'Data tidak ditemukan.',
+                $e->getMessage() === '' || str_starts_with($e->getMessage(), 'The route ') => 'Alamat tidak ditemukan.',
+                default => $e->getMessage(),
+            };
+
+            return response()->json(['message' => $message], 404);
+        });
         $exceptions->render(fn (MethodNotAllowedHttpException $e, Request $request) => $api($request)
             ? response()->json(['message' => 'Metode permintaan tidak didukung untuk alamat ini.'], 405)
             : null);

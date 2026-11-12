@@ -65,6 +65,8 @@ test('framework errors are Indonesian too', function () {
     $this->getJson("/api/kelas/{$this->f->k8b->id}")->assertForbidden()->assertJsonPath('message', 'Anda tidak memiliki akses ke data ini.');
     $this->getJson('/api/jadwal/999999')->assertNotFound()->assertJsonPath('message', 'Data tidak ditemukan.');
     $this->getJson('/api/tidak-ada')->assertNotFound()->assertJsonPath('message', 'Alamat tidak ditemukan.');
+    // A specific message from the application stays (review #41).
+    $this->getJson('/api/report/absensi/999999?format=xlsx')->assertNotFound()->assertJsonPath('message', 'Kelas tidak ditemukan.');
     $this->putJson('/api/me')->assertStatus(405)->assertJsonPath('message', 'Metode permintaan tidak didukung untuk alamat ini.');
 });
 
