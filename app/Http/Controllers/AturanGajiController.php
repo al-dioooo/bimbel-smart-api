@@ -4,9 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreAturanGajiRequest;
 use App\Http\Requests\UpdateAturanGajiRequest;
+use App\Models\Absensi;
 use App\Models\AturanGaji;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class AturanGajiController extends Controller
 {
@@ -95,6 +97,18 @@ class AturanGajiController extends Controller
      */
     public function destroy(AturanGaji $aturanGaji)
     {
+        // Every `hadir` of the kelas is paid at this tarif; without it those
+        // sessions would silently drop out of the salary report.
+        $hasKehadiran = Absensi::where('status', 'h')
+            ->whereHas('jadwal', fn ($query) => $query->where('kelas_id', $aturanGaji->kelas_id))
+            ->exists();
+
+        if ($aturanGaji->kelas_id !== null && $hasKehadiran) {
+            throw ValidationException::withMessages([
+                'aturan_gaji' => 'Aturan gaji tidak dapat dihapus karena kelas ini sudah memiliki kehadiran yang dihitung dalam gaji.',
+            ]);
+        }
+
         DB::beginTransaction();
 
         try {

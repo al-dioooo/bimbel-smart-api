@@ -69,3 +69,23 @@ test('a mentor without kelas can be deleted together with the account', function
     expect(Mentor::find($this->f->mRina->id))->toBeNull()
         ->and($this->f->rina->fresh())->toBeNull();
 });
+
+test('an aturan gaji whose kelas has kehadiran cannot be deleted', function () {
+    $before = ($this->gaji)();
+
+    $this->deleteJson("/api/aturan-gaji/{$this->f->aturan7a->id}")
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['aturan_gaji' => 'sudah memiliki kehadiran']);
+
+    expect(AturanGaji::find($this->f->aturan7a->id))->not->toBeNull()
+        ->and(($this->gaji)())->toBe($before);
+});
+
+test('an aturan gaji whose kelas has no kehadiran can be deleted', function () {
+    // K-7B has no sessions; an `alpa`-only session would not count either.
+    $this->f->jadwal($this->f->k7b, BimbelFixture::day(-2), ['Gita' => 'a']);
+
+    $this->deleteJson("/api/aturan-gaji/{$this->f->aturan7b->id}")->assertOk();
+
+    expect(AturanGaji::find($this->f->aturan7b->id))->toBeNull();
+});
