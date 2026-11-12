@@ -28,6 +28,12 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    // Shared with the frontend's /api/backend proxy (API_PROXY_SECRET there),
+    // which forwards the visitor's IP with it. Empty: the header is ignored.
+    'frontend_proxy' => [
+        'secret' => env('FRONTEND_PROXY_SECRET'),
+    ],
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),

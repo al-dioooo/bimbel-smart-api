@@ -17,6 +17,8 @@ class FinalizeGajiRequest extends FormRequest
             'bulan' => ['required', 'regex:/^\d{4}-(0[1-9]|1[0-2])$/'],
             // UC-10 3a: confirms finalizing although some sessions have no absensi.
             'lanjutkan' => ['sometimes', 'boolean'],
+            // Optional: the total the admin previewed; refused if it changed.
+            'total' => ['sometimes', 'nullable', 'numeric'],
         ];
     }
 

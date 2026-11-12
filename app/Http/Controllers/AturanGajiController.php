@@ -6,7 +6,9 @@ use App\Http\Requests\StoreAturanGajiRequest;
 use App\Http\Requests\UpdateAturanGajiRequest;
 use App\Models\Absensi;
 use App\Models\AturanGaji;
-use App\Models\PeriodeGaji;
+use App\Models\Kelas;
+use App\Support\Sql;
+use App\Support\UniqueViolation;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -56,6 +58,7 @@ class AturanGajiController extends Controller
             ], 201);
         } catch (\Throwable $e) {
             DB::rollBack();
+            UniqueViolation::rethrow($e);
 
             return response()->json([
                 'message' => 'Failed to store aturan gaji data.',
@@ -80,16 +83,13 @@ class AturanGajiController extends Controller
      */
     public function update(UpdateAturanGajiRequest $request, AturanGaji $aturanGaji)
     {
-        // UC-10 step 9: a tarif that paid a finalized month is closed with it.
-        $changes = collect($request->validated())->filter(fn ($value, $key) => (string) $value !== (string) $aturanGaji->{$key});
-        if ($changes->isNotEmpty()) {
-            foreach (array_unique(array_filter([$aturanGaji->kelas_id, $changes->get('kelas_id')])) as $kelasId) {
-                if ($periode = PeriodeGaji::usingKelas((int) $kelasId)) {
-                    throw ValidationException::withMessages([
-                        'aturan_gaji' => "Aturan gaji ini sudah dipakai pada periode gaji {$periode->label()} yang sudah difinalisasi, sehingga tidak dapat diubah.",
-                    ]);
-                }
-            }
+        // Moving the tarif to another kelas would leave this kelas's hadir
+        // without a tarif, which a delete is refused for.
+        if ($request->has('kelas_id') && (int) $request->input('kelas_id') !== (int) $aturanGaji->kelas_id
+            && self::kelasHasKehadiran($aturanGaji->kelas_id)) {
+            throw ValidationException::withMessages([
+                'kelas_id' => 'Aturan gaji tidak dapat dipindahkan ke kelas lain karena kelas ini sudah memiliki kehadiran yang dihitung dalam gaji.',
+            ]);
         }
 
         DB::beginTransaction();
@@ -97,14 +97,20 @@ class AturanGajiController extends Controller
         try {
             $aturanGaji->update($request->validated());
 
+            // Finalized months keep their stored amounts (report_gaji); the
+            // open months with kehadiran in this kelas are repriced.
+            $bulanTerdampak = $aturanGaji->wasChanged(['tarif', 'kelas_id']) ? self::bulanTerbuka($aturanGaji->kelas_id) : [];
+
             DB::commit();
 
             return response()->json([
                 'message' => 'Successfully update aturan gaji data.',
                 'data' => $aturanGaji,
+                'bulan_terdampak' => $bulanTerdampak,
             ], 200);
         } catch (\Throwable $e) {
             DB::rollBack();
+            UniqueViolation::rethrow($e);
 
             return response()->json([
                 'message' => 'Failed to update aturan gaji data.',
@@ -118,21 +124,21 @@ class AturanGajiController extends Controller
      */
     public function destroy(AturanGaji $aturanGaji)
     {
-        // Every `hadir` of the kelas is paid at this tarif; without it those
-        // sessions would silently drop out of the salary report.
-        $hasKehadiran = Absensi::where('status', 'h')
-            ->whereHas('jadwal', fn ($query) => $query->where('kelas_id', $aturanGaji->kelas_id))
-            ->exists();
-
-        if ($aturanGaji->kelas_id !== null && $hasKehadiran) {
-            throw ValidationException::withMessages([
-                'aturan_gaji' => 'Aturan gaji tidak dapat dihapus karena kelas ini sudah memiliki kehadiran yang dihitung dalam gaji.',
-            ]);
-        }
-
         DB::beginTransaction();
 
         try {
+            // Every `hadir` of the kelas is paid at this tarif; without it those
+            // sessions would silently drop out of the salary report. The kelas
+            // row is locked so absensi stored meanwhile (which takes a shared
+            // lock on it) cannot slip in between the check and the delete.
+            if (self::kelasHasKehadiran($aturanGaji->kelas_id, lock: true)) {
+                DB::rollBack();
+
+                throw ValidationException::withMessages([
+                    'aturan_gaji' => 'Aturan gaji tidak dapat dihapus karena kelas ini sudah memiliki kehadiran yang dihitung dalam gaji.',
+                ]);
+            }
+
             $aturanGaji->delete();
 
             DB::commit();
@@ -140,6 +146,8 @@ class AturanGajiController extends Controller
             return response()->json([
                 'message' => 'Successfully delete aturan gaji data.',
             ], 200);
+        } catch (ValidationException $e) {
+            throw $e;
         } catch (\Throwable $e) {
             DB::rollBack();
 
@@ -148,5 +156,45 @@ class AturanGajiController extends Controller
                 'error' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    /** Whether the kelas has `hadir` attendance; optionally locking the kelas row first. */
+    /**
+     * Months (YYYY-MM) not yet finalized in which the kelas has `hadir`, i.e.
+     * the salaries a tarif change recomputes.
+     *
+     * @return array<int, string>
+     */
+    private static function bulanTerbuka(int $kelasId): array
+    {
+        return DB::table('absensi')
+            ->join('jadwal', 'jadwal.id', '=', 'absensi.jadwal_id')
+            ->where('jadwal.kelas_id', $kelasId)
+            ->where('absensi.status', 'h')
+            ->whereNotExists(fn ($final) => $final->selectRaw('1')->from('periode_gaji')
+                ->whereRaw(Sql::year('periode_gaji.periode').' = '.Sql::year('jadwal.tanggal'))
+                ->whereRaw(Sql::month('periode_gaji.periode').' = '.Sql::month('jadwal.tanggal')))
+            ->selectRaw(Sql::year('jadwal.tanggal').' as tahun, '.Sql::month('jadwal.tanggal').' as bulan')
+            ->distinct()
+            ->get()
+            ->map(fn ($row) => sprintf('%04d-%02d', $row->tahun, $row->bulan))
+            ->sort()
+            ->values()
+            ->all();
+    }
+
+    private static function kelasHasKehadiran(?int $kelasId, bool $lock = false): bool
+    {
+        if ($kelasId === null) {
+            return false;
+        }
+
+        if ($lock) {
+            Kelas::whereKey($kelasId)->lockForUpdate()->first();
+        }
+
+        return Absensi::where('status', 'h')
+            ->whereHas('jadwal', fn ($query) => $query->where('kelas_id', $kelasId))
+            ->exists();
     }
 }
