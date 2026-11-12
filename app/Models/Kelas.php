@@ -38,6 +38,19 @@ class Kelas extends Model
     }
 
     /**
+     * REQ-022 / REQ-028: a kelas is identified by its nama and tingkat, so
+     * "Matematika 7A" SMP may exist once. Compared trimmed and case-insensitive.
+     */
+    public static function duplicateExists(string $nama, string $tingkat, ?int $ignoreId = null): bool
+    {
+        return static::query()
+            ->whereRaw('LOWER(TRIM(nama)) = ?', [mb_strtolower(trim($nama))])
+            ->whereRaw('LOWER(TRIM(tingkat)) = ?', [mb_strtolower(trim($tingkat))])
+            ->when($ignoreId, fn ($query) => $query->whereKeyNot($ignoreId))
+            ->exists();
+    }
+
+    /**
      * Resource filter function.
      *
      * @param  mixed  $query

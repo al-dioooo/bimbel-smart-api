@@ -63,3 +63,33 @@ describe('aturan gaji (D2)', function () {
             ->toThrow(QueryException::class);
     });
 });
+
+describe('kelas (D20)', function () {
+    test('a kelas with the same nama and tingkat is refused, whatever the case or spacing', function (string $nama, string $tingkat) {
+        $n = Kelas::count();
+
+        $this->postJson('/api/kelas', ['nama' => $nama, 'tingkat' => $tingkat, 'mentor_id' => $this->f->mBudi->id])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['nama' => 'sudah terdaftar']);
+
+        expect(Kelas::count())->toBe($n);
+    })->with([
+        ['Matematika 7A', 'SMP'],
+        ['matematika 7a', 'smp'],
+        ['  Matematika 7A ', 'SMP'],
+    ]);
+
+    test('the same nama at another tingkat is a different kelas', function () {
+        $this->postJson('/api/kelas', ['nama' => 'Matematika 7A', 'tingkat' => 'SMA', 'mentor_id' => $this->f->mBudi->id])
+            ->assertCreated();
+    });
+
+    test('an update may keep its own nama but not take another kelas\'s', function () {
+        $this->putJson("/api/kelas/{$this->f->k7a->id}", ['nama' => 'Matematika 7A', 'tingkat' => 'SMP'])->assertOk();
+        $this->putJson("/api/kelas/{$this->f->k7b->id}", ['nama' => 'Matematika 7A'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['nama' => 'sudah terdaftar']);
+
+        expect($this->f->k7b->fresh()->nama)->toBe('Matematika 7B');
+    });
+});
