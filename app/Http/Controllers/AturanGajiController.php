@@ -6,7 +6,9 @@ use App\Http\Requests\StoreAturanGajiRequest;
 use App\Http\Requests\UpdateAturanGajiRequest;
 use App\Models\Absensi;
 use App\Models\AturanGaji;
+use App\Models\Kelas;
 use App\Models\PeriodeGaji;
+use App\Support\UniqueViolation;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -56,6 +58,7 @@ class AturanGajiController extends Controller
             ], 201);
         } catch (\Throwable $e) {
             DB::rollBack();
+            UniqueViolation::rethrow($e);
 
             return response()->json([
                 'message' => 'Failed to store aturan gaji data.',
@@ -92,6 +95,15 @@ class AturanGajiController extends Controller
             }
         }
 
+        // Moving the tarif to another kelas would leave this kelas's hadir
+        // without a tarif, which a delete is refused for.
+        if ($request->has('kelas_id') && (int) $request->input('kelas_id') !== (int) $aturanGaji->kelas_id
+            && self::kelasHasKehadiran($aturanGaji->kelas_id)) {
+            throw ValidationException::withMessages([
+                'kelas_id' => 'Aturan gaji tidak dapat dipindahkan ke kelas lain karena kelas ini sudah memiliki kehadiran yang dihitung dalam gaji.',
+            ]);
+        }
+
         DB::beginTransaction();
 
         try {
@@ -105,6 +117,7 @@ class AturanGajiController extends Controller
             ], 200);
         } catch (\Throwable $e) {
             DB::rollBack();
+            UniqueViolation::rethrow($e);
 
             return response()->json([
                 'message' => 'Failed to update aturan gaji data.',
@@ -118,21 +131,21 @@ class AturanGajiController extends Controller
      */
     public function destroy(AturanGaji $aturanGaji)
     {
-        // Every `hadir` of the kelas is paid at this tarif; without it those
-        // sessions would silently drop out of the salary report.
-        $hasKehadiran = Absensi::where('status', 'h')
-            ->whereHas('jadwal', fn ($query) => $query->where('kelas_id', $aturanGaji->kelas_id))
-            ->exists();
-
-        if ($aturanGaji->kelas_id !== null && $hasKehadiran) {
-            throw ValidationException::withMessages([
-                'aturan_gaji' => 'Aturan gaji tidak dapat dihapus karena kelas ini sudah memiliki kehadiran yang dihitung dalam gaji.',
-            ]);
-        }
-
         DB::beginTransaction();
 
         try {
+            // Every `hadir` of the kelas is paid at this tarif; without it those
+            // sessions would silently drop out of the salary report. The kelas
+            // row is locked so absensi stored meanwhile (which takes a shared
+            // lock on it) cannot slip in between the check and the delete.
+            if (self::kelasHasKehadiran($aturanGaji->kelas_id, lock: true)) {
+                DB::rollBack();
+
+                throw ValidationException::withMessages([
+                    'aturan_gaji' => 'Aturan gaji tidak dapat dihapus karena kelas ini sudah memiliki kehadiran yang dihitung dalam gaji.',
+                ]);
+            }
+
             $aturanGaji->delete();
 
             DB::commit();
@@ -140,6 +153,8 @@ class AturanGajiController extends Controller
             return response()->json([
                 'message' => 'Successfully delete aturan gaji data.',
             ], 200);
+        } catch (ValidationException $e) {
+            throw $e;
         } catch (\Throwable $e) {
             DB::rollBack();
 
@@ -148,5 +163,21 @@ class AturanGajiController extends Controller
                 'error' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    /** Whether the kelas has `hadir` attendance; optionally locking the kelas row first. */
+    private static function kelasHasKehadiran(?int $kelasId, bool $lock = false): bool
+    {
+        if ($kelasId === null) {
+            return false;
+        }
+
+        if ($lock) {
+            Kelas::whereKey($kelasId)->lockForUpdate()->first();
+        }
+
+        return Absensi::where('status', 'h')
+            ->whereHas('jadwal', fn ($query) => $query->where('kelas_id', $kelasId))
+            ->exists();
     }
 }

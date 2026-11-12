@@ -6,8 +6,11 @@ use App\Http\Requests\StorePenyesuaianGajiRequest;
 use App\Http\Requests\UpdatePenyesuaianGajiRequest;
 use App\Models\PenyesuaianGaji;
 use App\Models\PeriodeGaji;
+use App\Services\GajiCalculator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Carbon;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Manual bonus and potongan per mentor per month (REQ-064, UC-10 step 5).
@@ -57,7 +60,10 @@ class PenyesuaianGajiController extends Controller
             PeriodeGaji::ensureOpen(PenyesuaianGaji::periodeOf($request->input('bulan')), 'bulan', 'penyesuaian gaji periode tersebut');
         }
 
-        $penyesuaianGaji->update(self::attributes($request->validated()));
+        $attributes = self::attributes($request->validated());
+        self::refuseNegativeTotal($attributes + $penyesuaianGaji->only(['mentor_id', 'periode', 'jenis', 'nominal']), $penyesuaianGaji);
+
+        $penyesuaianGaji->update($attributes);
 
         return response()->json([
             'message' => 'Penyesuaian gaji berhasil diperbarui.',
@@ -81,7 +87,36 @@ class PenyesuaianGajiController extends Controller
     {
         PeriodeGaji::ensureOpen(PenyesuaianGaji::periodeOf($validated['bulan']), 'bulan', 'penyesuaian gaji periode tersebut');
 
-        return PenyesuaianGaji::create(self::attributes($validated) + ['created_by' => $userId])->load('mentor.user');
+        $attributes = self::attributes($validated);
+        self::refuseNegativeTotal($attributes);
+
+        return PenyesuaianGaji::create($attributes + ['created_by' => $userId])->load('mentor.user');
+    }
+
+    /**
+     * A potongan may not take the month's salary below zero. $replacing is
+     * the stored adjustment an update changes; its old amount is taken out.
+     */
+    private static function refuseNegativeTotal(array $attributes, ?PenyesuaianGaji $replacing = null): void
+    {
+        if ($attributes['jenis'] !== 'potongan') {
+            return;
+        }
+
+        $bulan = substr(Carbon::parse($attributes['periode'])->toDateString(), 0, 7);
+        $total = (float) (app(GajiCalculator::class)->rekap(['mentor_id' => $attributes['mentor_id'], 'bulan' => $bulan])->first()?->nominal ?? 0);
+
+        if ($replacing && (int) $replacing->mentor_id === (int) $attributes['mentor_id']
+            && Carbon::parse($replacing->periode)->isSameMonth(Carbon::parse($attributes['periode']))) {
+            $total += $replacing->jenis === 'potongan' ? $replacing->nominal : -$replacing->nominal;
+        }
+
+        if ($total - (float) $attributes['nominal'] < 0) {
+            throw ValidationException::withMessages([
+                'nominal' => 'Potongan melebihi gaji bulan ini (Rp '.number_format(max($total, 0), 0, ',', '.')
+                    .'). Total gaji tidak boleh negatif.',
+            ]);
+        }
     }
 
     /** The API speaks YYYY-MM; the column stores the first day of the month. */

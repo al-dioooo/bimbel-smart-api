@@ -6,6 +6,8 @@ use App\Models\PenyesuaianGaji;
 use App\Models\PeriodeGaji;
 use App\Models\ReportGaji;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Laravel\Sanctum\Sanctum;
 use Tests\Support\BimbelFixture;
 
@@ -58,15 +60,73 @@ test('finalizing stores the final report per mentor, locks the month and notifie
     $this->getJson('/api/report/gaji/periode/2026-09')->assertJsonPath('data.status', 'final')->assertJsonPath('data.finalized_by', 'Admin');
 });
 
-test('a month cannot be finalized twice, nor before it starts', function () {
+test('a month cannot be finalized twice, nor before it has ended', function () {
     ($this->finalize)()->assertCreated();
     ($this->finalize)()->assertUnprocessable()->assertJsonValidationErrors(['bulan' => 'sudah difinalisasi']);
 
+    // The current month still has sessions to record (J-DEPAN, in 3 days).
+    $bulanIni = now()->format('Y-m');
+    ($this->finalize)(['bulan' => $bulanIni, 'lanjutkan' => true])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['bulan' => 'belum berakhir. Finalisasi dapat dilakukan mulai 1 '.now()->addMonthNoOverflow()->locale('id')->translatedFormat('F Y')]);
     ($this->finalize)(['bulan' => now()->addMonth()->format('Y-m')])
-        ->assertUnprocessable()->assertJsonValidationErrors(['bulan' => 'belum berjalan']);
+        ->assertUnprocessable()->assertJsonValidationErrors(['bulan' => 'belum berakhir']);
 
     expect(PeriodeGaji::count())->toBe(1);
 });
+
+test('the last day of a month is still too early, the first day of the next is not', function () {
+    $this->travelTo('2026-10-31 23:59:00');
+    ($this->finalize)()->assertCreated();
+
+    $this->travelTo('2026-11-30 23:59:00');
+    ($this->finalize)(['bulan' => '2026-11', 'lanjutkan' => true])->assertUnprocessable()->assertJsonValidationErrors(['bulan' => 'belum berakhir']);
+});
+
+test('a month with no salary data is not finalized', function () {
+    ($this->finalize)(['bulan' => '2026-08'])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['bulan' => 'Tidak ada data gaji pada periode Agustus 2026']);
+
+    expect(PeriodeGaji::count())->toBe(0);
+});
+
+test('a month with a negative salary is not finalized', function () {
+    // Written directly: the API refuses such a potongan since review #35.
+    PenyesuaianGaji::create(['mentor_id' => $this->f->mSari->id, 'periode' => '2026-09-01', 'jenis' => 'potongan', 'nominal' => 45000]);
+
+    ($this->finalize)()->assertUnprocessable()->assertJsonValidationErrors(['bulan' => 'Total gaji Sari Dewi pada September 2026 negatif']);
+    expect(PeriodeGaji::count())->toBe(0);
+});
+
+test('a previewed total that no longer matches is refused', function () {
+    ($this->finalize)(['total' => 140000])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['total' => 'berubah sejak pratinjau (total sekarang Rp150.000)']);
+
+    ($this->finalize)(['total' => 150000])->assertCreated();
+});
+
+test('amounts are stored rounded to two decimals in decimal columns', function () {
+    PenyesuaianGaji::create(['mentor_id' => $this->f->mSari->id, 'periode' => '2026-09-01', 'jenis' => 'bonus', 'nominal' => 0.1]);
+    PenyesuaianGaji::create(['mentor_id' => $this->f->mSari->id, 'periode' => '2026-09-01', 'jenis' => 'bonus', 'nominal' => 0.2]);
+
+    ($this->finalize)()->assertCreated();
+
+    expect(ReportGaji::where('mentor_id', $this->f->mSari->id)->value('total_gaji'))->toBe(40000.3)
+        ->and(PeriodeGaji::sole()->total_gaji)->toBe(150000.3)
+        ->and(Schema::getColumnType('report_gaji', 'total_gaji'))->toBeIn(['numeric', 'decimal']);
+});
+
+test('the migration turns total_gaji into decimal and back', function () {
+    $migration = require database_path('migrations/2026_11_12_000006_add_snapshot_columns_to_report_gaji_table.php');
+
+    $migration->down();
+    expect(Schema::getColumnType('report_gaji', 'total_gaji'))->toBeIn(['float8', 'double', 'float', 'real']);
+
+    $migration->up();
+    expect(Schema::getColumnType('report_gaji', 'total_gaji'))->toBeIn(['numeric', 'decimal']);
+})->skip(fn () => DB::connection()->getDriverName() === 'sqlite', 'SQLite rebuilds the table; checked on PostgreSQL.');
 
 test('sessions without absensi need an explicit confirmation (UC-10 3a)', function () {
     $this->f->jadwal($this->f->k7a, '2026-09-14');
@@ -158,3 +218,21 @@ describe('after finalization (UC-10 step 9)', function () {
             ->assertCreated();
     });
 });
+
+test('finalize and the writers of a month use the same advisory lock', function () {
+    // A second session, as another request would have.
+    config(['database.connections.lain' => config('database.connections.pgsql')]);
+    $lain = fn (string $sql) => DB::connection('lain')->selectOne($sql)->ok;
+
+    // Held until this test's transaction ends.
+    PeriodeGaji::lockForFinalize('2026-09-01');
+    expect($lain('SELECT pg_try_advisory_lock_shared(7301, 202609) AS ok'))->toBeFalse()
+        ->and($lain('SELECT pg_try_advisory_lock_shared(7301, 202610) AS ok'))->toBeTrue();
+    $lain('SELECT pg_advisory_unlock_shared(7301, 202610) AS ok');
+
+    PeriodeGaji::ensureOpen('2026-10-15', 'tanggal', 'jadwal ini');
+    expect($lain('SELECT pg_try_advisory_lock(7301, 202610) AS ok'))->toBeFalse()
+        ->and($lain('SELECT pg_try_advisory_lock_shared(7301, 202610) AS ok'))->toBeTrue();
+
+    DB::purge('lain');
+})->skip(fn () => DB::connection()->getDriverName() !== 'pgsql', 'Advisory locks are PostgreSQL only.');

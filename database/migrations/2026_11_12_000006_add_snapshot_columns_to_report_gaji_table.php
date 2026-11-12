@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\Schema;
  * month, with enough detail to show and print it later without recomputing
  * (names, tarif and adjustments as they were).
  *
+ * total_gaji becomes decimal(15,2) like the new amounts.
+ *
  * The table existed but was never written by the application. If production
  * already has two rows for the same mentor and month, the migration lists
  * them and stops instead of deleting either.
@@ -41,6 +43,9 @@ return new class extends Migration
             $table->decimal('potongan', 15, 2)->default(0)->after('bonus');
             $table->json('rincian')->nullable()->after('total_gaji');
 
+            // Money in the record that must never change: exact, not double.
+            $table->decimal('total_gaji', 15, 2)->change();
+
             $table->unique(['mentor_id', 'bulan']);
         });
     }
@@ -51,6 +56,7 @@ return new class extends Migration
             $table->dropUnique(['mentor_id', 'bulan']);
             $table->dropConstrainedForeignId('periode_gaji_id');
             $table->dropColumn(['mentor_nama', 'gaji_pokok', 'bonus', 'potongan', 'rincian']);
+            $table->double('total_gaji')->change();
         });
     }
 };

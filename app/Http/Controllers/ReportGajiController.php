@@ -94,8 +94,11 @@ class ReportGajiController extends Controller
             throw ValidationException::withMessages(['bulan' => "Periode gaji {$label} sudah difinalisasi."]);
         }
 
-        if (Carbon::parse($periode)->isAfter(Carbon::today()->startOfMonth())) {
-            throw ValidationException::withMessages(['bulan' => "Periode {$label} belum berjalan sehingga belum dapat difinalisasi."]);
+        // There is no unfinalize, so a month whose sessions may still get
+        // absensi cannot be closed.
+        if (! Carbon::parse($periode)->isBefore(Carbon::today()->startOfMonth())) {
+            $mulai = Carbon::parse($periode)->addMonth()->locale('id')->translatedFormat('j F Y');
+            throw ValidationException::withMessages(['bulan' => "Periode {$label} belum berakhir. Finalisasi dapat dilakukan mulai {$mulai}."]);
         }
 
         $belumDiabsen = $this->gaji->jadwalBelumDiabsen($bulan);
@@ -107,14 +110,22 @@ class ReportGajiController extends Controller
 
         try {
             DB::transaction(function () use ($bulan, $periode, $label, $request) {
+                // Writes to the month that already passed ensureOpen commit
+                // first; later ones wait and then see the month as final.
+                PeriodeGaji::lockForFinalize($periode);
+                if (PeriodeGaji::finalFor($periode)) {
+                    throw ValidationException::withMessages(['bulan' => "Periode gaji {$label} sudah difinalisasi."]);
+                }
+
                 $draft = $this->gaji->periode($bulan);
+                $this->refuseUnfinalizable($draft, $label, $request);
 
                 $final = PeriodeGaji::create([
                     'periode' => $periode,
                     'finalized_at' => now(),
                     'finalized_by' => $request->user()->id,
                     'jumlah_mentor' => $draft['total']['jumlah_mentor'],
-                    'total_gaji' => $draft['total']['total'],
+                    'total_gaji' => round($draft['total']['total'], 2),
                 ]);
 
                 foreach ($draft['mentor'] as $row) {
@@ -123,10 +134,10 @@ class ReportGajiController extends Controller
                         'mentor_nama' => $row['mentor'],
                         'bulan' => $periode,
                         'jumlah_kehadiran' => $row['total_kehadiran'],
-                        'gaji_pokok' => $row['gaji_pokok'],
-                        'bonus' => $row['bonus'],
-                        'potongan' => $row['potongan'],
-                        'total_gaji' => $row['total'],
+                        'gaji_pokok' => round($row['gaji_pokok'], 2),
+                        'bonus' => round($row['bonus'], 2),
+                        'potongan' => round($row['potongan'], 2),
+                        'total_gaji' => round($row['total'], 2),
                         'rincian' => ['kelas' => $row['rincian'], 'penyesuaian' => $row['penyesuaian']],
                     ]);
 
@@ -151,6 +162,34 @@ class ReportGajiController extends Controller
             'message' => "Proses gaji untuk periode {$label} telah berhasil difinalisasi.",
             'data' => $this->gaji->periode($bulan),
         ], 201);
+    }
+
+    /**
+     * A finalized month can never change, so refuse one with nothing in it, a
+     * negative salary, or figures that moved since the admin's preview.
+     */
+    private function refuseUnfinalizable(array $draft, string $label, FinalizeGajiRequest $request): void
+    {
+        if ($draft['mentor'] === []) {
+            throw ValidationException::withMessages([
+                'bulan' => "Tidak ada data gaji pada periode {$label}, sehingga belum ada yang dapat difinalisasi.",
+            ]);
+        }
+
+        $negatif = collect($draft['mentor'])->where('total', '<', 0)->pluck('mentor');
+        if ($negatif->isNotEmpty()) {
+            throw ValidationException::withMessages([
+                'bulan' => "Total gaji {$negatif->implode(', ')} pada {$label} negatif. Periksa potongan sebelum finalisasi.",
+            ]);
+        }
+
+        $dilihat = $request->validated('total');
+        if ($dilihat !== null && abs(round((float) $dilihat, 2) - round($draft['total']['total'], 2)) >= 0.005) {
+            throw ValidationException::withMessages([
+                'total' => "Data gaji {$label} berubah sejak pratinjau (total sekarang Rp"
+                    .number_format($draft['total']['total'], 0, ',', '.').'). Muat ulang pratinjau sebelum finalisasi.',
+            ]);
+        }
     }
 
     /** PostgreSQL returns SUM() of numeric columns as strings; send numbers. */
