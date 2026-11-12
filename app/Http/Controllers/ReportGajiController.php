@@ -37,7 +37,9 @@ class ReportGajiController extends Controller
 
     /**
      * Per-kelas breakdown behind one mentor's monthly total, with the
-     * adjustments of the same filter (all months, or ?bulan=).
+     * adjustments of the same filter (all months, or ?bulan=) and the totals
+     * over every row of that filter (not just the page), for the admin and
+     * the mentor alike.
      */
     public function show(ReportFilterRequest $request, $mentorId)
     {
@@ -55,6 +57,7 @@ class ReportGajiController extends Controller
             'message' => 'Successfully get report gaji detail.',
             'data' => $this->mapRows($data, fn ($row) => self::numbers($row, ['tahun', 'bulan', 'jumlah_kehadiran'], ['tarif', 'nominal'])),
             'penyesuaian' => $this->gaji->penyesuaian((int) $mentorId, $request->query('bulan')),
+            'total' => $this->gaji->total(['mentor_id' => (int) $mentorId] + $request->only(['bulan', 'from', 'to'])),
         ], 200);
     }
 

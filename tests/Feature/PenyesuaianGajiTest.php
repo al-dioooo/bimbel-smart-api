@@ -131,3 +131,36 @@ describe('no negative salary (review #35)', function () {
         ($this->tambah)(['jenis' => 'bonus', 'nominal' => 1000.505])->assertUnprocessable()->assertJsonValidationErrors(['nominal' => 'dua angka']);
     });
 });
+
+describe('the totals of one mentor (round 2 review, FE #20)', function () {
+    beforeEach(function () {
+        ($this->tambah)(['jenis' => 'bonus', 'nominal' => 50000])->assertCreated();
+        ($this->tambah)(['jenis' => 'potongan', 'nominal' => 10000])->assertCreated();
+    });
+
+    test('the detail returns the totals over every row of its filter', function () {
+        // One row per page, so the totals cannot come from the page.
+        $this->getJson("/api/report/gaji/{$this->f->mBudi->id}?limit=1")
+            ->assertOk()
+            ->assertJsonCount(1, 'data.data')
+            ->assertJsonPath('total.gaji_pokok', fn ($v) => (float) $v === 90000.0)
+            ->assertJsonPath('total.bonus', fn ($v) => (float) $v === 50000.0)
+            ->assertJsonPath('total.potongan', fn ($v) => (float) $v === 10000.0)
+            ->assertJsonPath('total.total', fn ($v) => (float) $v === 130000.0);
+
+        $this->getJson("/api/report/gaji/{$this->f->mBudi->id}?bulan=2026-09")
+            ->assertJsonPath('total.total', fn ($v) => (float) $v === 100000.0);
+        $this->getJson("/api/report/gaji/{$this->f->mBudi->id}?bulan=2026-08")
+            ->assertJsonPath('total.total', fn ($v) => (float) $v === 0.0);
+    });
+
+    test('a mentor gets their own totals from the same endpoint, not the admin list', function () {
+        Sanctum::actingAs($this->f->budi);
+
+        $this->getJson('/api/report/gaji?paginate=false')->assertForbidden();
+        $this->getJson("/api/report/gaji/{$this->f->mBudi->id}?bulan=2026-09")
+            ->assertOk()
+            ->assertJsonPath('total.total', fn ($v) => (float) $v === 100000.0);
+        $this->getJson("/api/report/gaji/{$this->f->mSari->id}")->assertForbidden();
+    });
+});
