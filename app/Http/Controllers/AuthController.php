@@ -6,6 +6,7 @@ use App\Http\Requests\UpdateProfileRequest;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Laravel\Sanctum\PersonalAccessToken;
 
 class AuthController extends Controller
 {
@@ -51,9 +52,20 @@ class AuthController extends Controller
         ]);
     }
 
+    /**
+     * REQ-009 / REQ-010: revoke the token on the server.
+     *
+     * The route sits outside auth:sanctum (logging out without a token keeps
+     * answering 200), so the default guard knew no user and nothing was ever
+     * deleted (D12). Resolve the user through the sanctum guard instead.
+     */
     public function logout(Request $request)
     {
-        $request->user()?->currentAccessToken()->delete();
+        $token = $request->user('sanctum')?->currentAccessToken();
+
+        if ($token instanceof PersonalAccessToken) {
+            $token->delete();
+        }
 
         return response()->json(['message' => 'Logged out']);
     }

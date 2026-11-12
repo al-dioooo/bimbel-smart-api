@@ -54,6 +54,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Idle Timeout
+    |--------------------------------------------------------------------------
+    |
+    | REQ-016: a session ends after a period of inactivity. A token whose last
+    | use (or creation, if never used) is more than this many minutes ago is
+    | rejected and deleted. 30 minutes still works, 31 does not. 0 disables it.
+    |
+    */
+
+    'idle_timeout' => (int) env('SANCTUM_IDLE_MINUTES', 30),
+
+    /*
+    |--------------------------------------------------------------------------
     | Token Prefix
     |--------------------------------------------------------------------------
     |
