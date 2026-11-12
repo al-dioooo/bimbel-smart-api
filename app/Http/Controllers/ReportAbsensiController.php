@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
+use App\Http\Requests\ReportFilterRequest;
 use Illuminate\Support\Facades\DB;
 
 class ReportAbsensiController extends Controller
@@ -13,7 +13,7 @@ class ReportAbsensiController extends Controller
      * There is no `report_absensi` table (the model pointed at one that was
      * never migrated), so this is derived from `absensi` on read.
      */
-    public function index(Request $request)
+    public function index(ReportFilterRequest $request)
     {
         $query = DB::table('absensi')
             ->join('jadwal', 'jadwal.id', '=', 'absensi.jadwal_id')
@@ -78,7 +78,7 @@ class ReportAbsensiController extends Controller
     /**
      * Per-siswa breakdown for one kelas.
      */
-    public function show(Request $request, $kelasId)
+    public function show(ReportFilterRequest $request, $kelasId)
     {
         $query = DB::table('absensi')
             ->join('jadwal', 'jadwal.id', '=', 'absensi.jadwal_id')
