@@ -41,7 +41,7 @@ class ReportGajiController extends Controller
         );
 
         return response()->json([
-            'message' => 'Successfully get report gaji data.',
+            'message' => 'Data laporan gaji berhasil diambil.',
             'data' => $this->mapRows($data, fn ($row) => self::numbers($row, ['mentor_id', 'tahun', 'bulan', 'total_kehadiran_murid'], ['gaji_pokok', 'bonus', 'potongan', 'nominal'])),
         ], 200);
     }
@@ -64,7 +64,7 @@ class ReportGajiController extends Controller
             ->map(fn ($row) => self::numbers($row, ['kelas_id', 'tahun', 'bulan', 'jumlah_kehadiran'], ['tarif', 'nominal']));
 
         return response()->json([
-            'message' => 'Successfully get report gaji detail.',
+            'message' => 'Rincian laporan gaji berhasil diambil.',
             'data' => $this->paginateCollection($rows, $request->query('limit') ?? 10, $request->query('paginate')),
             'penyesuaian' => $this->gaji->penyesuaian((int) $mentorId, $request->query('bulan')),
             'total' => $this->gaji->total(['mentor_id' => (int) $mentorId] + $request->only(['bulan', 'from', 'to'])),

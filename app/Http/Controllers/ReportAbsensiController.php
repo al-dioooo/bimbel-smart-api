@@ -35,7 +35,7 @@ class ReportAbsensiController extends Controller
         );
 
         return response()->json([
-            'message' => 'Successfully get report absensi data.',
+            'message' => 'Data laporan absensi berhasil diambil.',
             'data' => $data,
         ], 200);
     }
@@ -66,7 +66,7 @@ class ReportAbsensiController extends Controller
         );
 
         return response()->json([
-            'message' => 'Successfully get report absensi detail.',
+            'message' => 'Rincian laporan absensi berhasil diambil.',
             'data' => [
                 'kelas' => $kelas,
                 'rekap' => $data,

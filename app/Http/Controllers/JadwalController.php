@@ -23,7 +23,7 @@ class JadwalController extends Controller
         $data = $this->paginate($query, $request->query('limit') ?? 10, $request->query('paginate'), $request->query('order_by') ?? 'tanggal', $request->query('direction') ?? 'desc');
 
         return response()->json([
-            'message' => 'Successfully get jadwal data.',
+            'message' => 'Data jadwal berhasil diambil.',
             'data' => $data,
         ]);
     }
@@ -44,7 +44,7 @@ class JadwalController extends Controller
             DB::commit();
 
             return response()->json([
-                'message' => 'Successfully store jadwal data.',
+                'message' => 'Data jadwal berhasil ditambahkan.',
                 'data' => $jadwal,
             ], 201);
         } catch (\Throwable $e) {
@@ -53,10 +53,7 @@ class JadwalController extends Controller
                 throw $e;
             }
 
-            return response()->json([
-                'message' => 'Failed to store jadwal data.',
-                'error' => $e->getMessage(),
-            ], 500);
+            return $this->serverError('Data jadwal gagal disimpan. Silakan coba lagi.', $e);
         }
     }
 
@@ -68,7 +65,7 @@ class JadwalController extends Controller
         $this->authorizeOwner($jadwal->kelas?->mentor_id);
 
         return response()->json([
-            'message' => 'Successfully get jadwal data.',
+            'message' => 'Data jadwal berhasil diambil.',
             'data' => $jadwal,
         ]);
     }
@@ -113,7 +110,7 @@ class JadwalController extends Controller
             DB::commit();
 
             return response()->json([
-                'message' => 'Successfully update jadwal data.',
+                'message' => 'Data jadwal berhasil diperbarui.',
                 'data' => $jadwal,
             ], 200);
         } catch (\Throwable $e) {
@@ -122,10 +119,7 @@ class JadwalController extends Controller
                 throw $e;
             }
 
-            return response()->json([
-                'message' => 'Failed to update jadwal data.',
-                'error' => $e->getMessage(),
-            ], 500);
+            return $this->serverError('Data jadwal gagal diperbarui. Silakan coba lagi.', $e);
         }
     }
 
@@ -154,7 +148,7 @@ class JadwalController extends Controller
             DB::commit();
 
             return response()->json([
-                'message' => 'Successfully delete jadwal data.',
+                'message' => 'Data jadwal berhasil dihapus.',
             ], 200);
         } catch (\Throwable $e) {
             DB::rollBack();
@@ -167,10 +161,7 @@ class JadwalController extends Controller
                 throw ValidationException::withMessages(['jadwal' => 'Jadwal tidak dapat dihapus karena sudah memiliki catatan absensi.']);
             }
 
-            return response()->json([
-                'message' => 'Failed to delete jadwal data.',
-                'error' => $e->getMessage(),
-            ], 500);
+            return $this->serverError('Data jadwal gagal dihapus. Silakan coba lagi.', $e);
         }
     }
 }

@@ -65,7 +65,7 @@ describe('slip gaji PDF (REQ-061)', function () {
     test('a download without a token is a JSON 401, not a redirect', function () {
         $this->get("/api/report/gaji/{$this->f->mBudi->id}?format=pdf", ['Accept' => 'application/pdf'])
             ->assertUnauthorized()
-            ->assertJsonPath('message', 'Unauthenticated.');
+            ->assertJsonPath('message', 'Sesi Anda telah berakhir atau Anda belum login. Silakan login kembali.');
     });
 
     test('the slip holds the kelas lines, the adjustments and the total', function () {

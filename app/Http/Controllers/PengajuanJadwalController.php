@@ -21,7 +21,7 @@ class PengajuanJadwalController extends Controller
         $data = $this->paginate($query, $request->query('limit') ?? 10, $request->query('paginate'), $request->query('order_by') ?? 'created_at', $request->query('direction') ?? 'desc');
 
         return response()->json([
-            'message' => 'Successfully get pengajuan jadwal data.',
+            'message' => 'Data pengajuan jadwal berhasil diambil.',
             'data' => $data,
         ]);
     }
@@ -55,16 +55,13 @@ class PengajuanJadwalController extends Controller
             DB::commit();
 
             return response()->json([
-                'message' => 'Successfully store pengajuan jadwal data.',
+                'message' => 'Data pengajuan jadwal berhasil ditambahkan.',
                 'data' => $pengajuanJadwal,
             ], 201);
         } catch (\Throwable $e) {
             DB::rollBack();
 
-            return response()->json([
-                'message' => 'Failed to store pengajuan jadwal data.',
-                'error' => $e->getMessage(),
-            ], 500);
+            return $this->serverError('Data pengajuan jadwal gagal disimpan. Silakan coba lagi.', $e);
         }
     }
 
@@ -76,7 +73,7 @@ class PengajuanJadwalController extends Controller
         $this->authorizeOwner($pengajuanJadwal->jadwal?->kelas?->mentor_id);
 
         return response()->json([
-            'message' => 'Successfully get pengajuan jadwal data.',
+            'message' => 'Data pengajuan jadwal berhasil diambil.',
             'data' => $pengajuanJadwal,
         ]);
     }
@@ -94,16 +91,13 @@ class PengajuanJadwalController extends Controller
             DB::commit();
 
             return response()->json([
-                'message' => 'Successfully update pengajuan jadwal data.',
+                'message' => 'Data pengajuan jadwal berhasil diperbarui.',
                 'data' => $pengajuanJadwal,
             ], 200);
         } catch (\Throwable $e) {
             DB::rollBack();
 
-            return response()->json([
-                'message' => 'Failed to update pengajuan jadwal data.',
-                'error' => $e->getMessage(),
-            ], 500);
+            return $this->serverError('Data pengajuan jadwal gagal diperbarui. Silakan coba lagi.', $e);
         }
     }
 
@@ -115,7 +109,7 @@ class PengajuanJadwalController extends Controller
         // Mentors may only cancel their own request, and only while pending.
         if (! $request->user()->isAdmin()) {
             $this->authorizeOwner($pengajuanJadwal->jadwal?->kelas?->mentor_id);
-            abort_unless($pengajuanJadwal->status === 'pending', 403, 'Only pending requests can be cancelled.');
+            abort_unless($pengajuanJadwal->status === 'pending', 403, 'Hanya pengajuan yang masih menunggu yang dapat dibatalkan.');
         }
 
         DB::beginTransaction();
@@ -126,15 +120,12 @@ class PengajuanJadwalController extends Controller
             DB::commit();
 
             return response()->json([
-                'message' => 'Successfully delete pengajuan jadwal data.',
+                'message' => 'Data pengajuan jadwal berhasil dihapus.',
             ], 200);
         } catch (\Throwable $e) {
             DB::rollBack();
 
-            return response()->json([
-                'message' => 'Failed to delete pengajuan jadwal data.',
-                'error' => $e->getMessage(),
-            ], 500);
+            return $this->serverError('Data pengajuan jadwal gagal dihapus. Silakan coba lagi.', $e);
         }
     }
 }

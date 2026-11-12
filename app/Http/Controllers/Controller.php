@@ -6,6 +6,7 @@ use App\Support\Sql;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Foundation\Validation\ValidatesRequests;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Pagination\AbstractPaginator;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
@@ -46,8 +47,22 @@ abstract class Controller
         abort_unless(
             $mentorId !== null && $user?->mentor && (int) $mentorId === (int) $user->mentor->id,
             403,
-            'You do not have access to this record.'
+            'Anda tidak memiliki akses ke data ini.'
         );
+    }
+
+    /**
+     * A failed write: 500 with a user-facing message. The driver error (often
+     * the SQL, with bound values) is logged, and only returned while debugging.
+     */
+    protected function serverError(string $message, \Throwable $e): JsonResponse
+    {
+        report($e);
+
+        return response()->json(array_filter([
+            'message' => $message,
+            'error' => config('app.debug') ? $e->getMessage() : null,
+        ]), 500);
     }
 
     /** Applies $fn to every row of a paginate() result, paginated or not. */

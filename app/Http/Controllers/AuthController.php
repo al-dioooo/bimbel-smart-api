@@ -12,9 +12,13 @@ class AuthController extends Controller
 {
     public function login(Request $request)
     {
+        // UC-01 3a.
         $request->validate([
             'identifier' => ['required', 'string'],
             'password' => ['required', 'string'],
+        ], [
+            'identifier.required' => 'Username dan password tidak boleh kosong.',
+            'password.required' => 'Username dan password tidak boleh kosong.',
         ]);
 
         $identifier = $request->identifier;
@@ -26,14 +30,14 @@ class AuthController extends Controller
 
         if (! $user || ! Hash::check($request->password, $user->password)) {
             return response()->json([
-                'message' => 'Invalid credentials',
+                'message' => 'Username atau password salah.', // UC-01 4a, REQ-007
             ], 401);
         }
 
         // If mentor, validate mentor profile
         if ($user->isMentor() && ! $user->mentor) {
             return response()->json([
-                'message' => 'Mentor profile is incomplete',
+                'message' => 'Profil mentor belum lengkap. Hubungi admin.',
             ], 403);
         }
 
@@ -44,7 +48,7 @@ class AuthController extends Controller
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
-            'message' => 'Login successful',
+            'message' => 'Login berhasil.',
             'data' => [
                 'token' => $token,
                 'user' => $user->load('mentor'),
@@ -67,7 +71,7 @@ class AuthController extends Controller
             $token->delete();
         }
 
-        return response()->json(['message' => 'Logged out']);
+        return response()->json(['message' => 'Anda telah berhasil logout.']); // UC-02 4a
     }
 
     public function updateProfile(UpdateProfileRequest $request)
@@ -75,14 +79,14 @@ class AuthController extends Controller
         $user = $request->user()->update($request->validated());
 
         return response()->json([
-            'message' => 'Profile updated successfully',
+            'message' => 'Profil berhasil diperbarui.',
         ]);
     }
 
     public function me(Request $request)
     {
         return response()->json([
-            'message' => 'User data retrieved successfully',
+            'message' => 'Data pengguna berhasil diambil.',
             'data' => $request->user()->load('mentor'),
         ]);
     }

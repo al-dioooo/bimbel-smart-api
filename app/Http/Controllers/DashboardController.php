@@ -68,7 +68,7 @@ class DashboardController extends Controller
             ->sum('nominal');
 
         return response()->json([
-            'message' => 'Successfully get dashboard stats.',
+            'message' => 'Data dashboard berhasil diambil.',
             'data' => [
                 'periode' => [
                     'from' => $from->toDateString(),

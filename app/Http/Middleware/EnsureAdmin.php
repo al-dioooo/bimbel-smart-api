@@ -11,7 +11,7 @@ class EnsureAdmin
 {
     public function handle(Request $request, Closure $next): Response
     {
-        abort_unless($request->user()?->isAdmin(), 403, 'This action is restricted to administrators.');
+        abort_unless($request->user()?->isAdmin(), 403, 'Fitur ini hanya dapat digunakan oleh Admin/Owner.');
 
         return $next($request);
     }
