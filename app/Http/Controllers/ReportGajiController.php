@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ReportFilterRequest;
+use App\Support\Sql;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -43,7 +44,7 @@ class ReportGajiController extends Controller
         }
 
         if ($search = $request->query('search')) {
-            $query->where('users.name', 'like', '%'.$search.'%');
+            $query->where('users.name', Sql::like(), '%'.$search.'%');
         }
 
         // ?bulan=YYYY-MM
