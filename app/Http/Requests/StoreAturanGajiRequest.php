@@ -23,8 +23,16 @@ class StoreAturanGajiRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'kelas_id' => ['required', 'exists:kelas,id'],
+            // One tarif per kelas (REQ-055); a second rule doubled the salary rows.
+            'kelas_id' => ['required', 'exists:kelas,id', 'unique:aturan_gaji,kelas_id'],
             'tarif' => ['required', 'numeric', 'min:0'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'kelas_id.unique' => 'Kelas ini sudah memiliki aturan gaji. Ubah aturan yang sudah ada.',
         ];
     }
 }
