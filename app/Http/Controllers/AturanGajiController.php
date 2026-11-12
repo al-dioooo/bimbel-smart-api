@@ -149,15 +149,19 @@ class AturanGajiController extends Controller
         }
     }
 
-    /** Whether the kelas has `hadir` attendance; optionally locking the kelas row first. */
     /**
      * Months (YYYY-MM) not yet finalized in which the kelas has `hadir`, i.e.
-     * the salaries a tarif change recomputes.
+     * the salaries a tarif change recomputes. None for an aturan whose kelas
+     * was deleted (aturan_gaji.kelas_id is set to NULL then).
      *
      * @return array<int, string>
      */
-    private static function bulanTerbuka(int $kelasId): array
+    private static function bulanTerbuka(?int $kelasId): array
     {
+        if ($kelasId === null) {
+            return [];
+        }
+
         return DB::table('absensi')
             ->join('jadwal', 'jadwal.id', '=', 'absensi.jadwal_id')
             ->where('jadwal.kelas_id', $kelasId)
@@ -174,6 +178,7 @@ class AturanGajiController extends Controller
             ->all();
     }
 
+    /** Whether the kelas has `hadir` attendance; optionally locking the kelas row first. */
     private static function kelasHasKehadiran(?int $kelasId, bool $lock = false): bool
     {
         if ($kelasId === null) {

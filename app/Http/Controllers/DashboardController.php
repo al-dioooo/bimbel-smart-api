@@ -116,10 +116,7 @@ class DashboardController extends Controller
         ];
 
         // REQ-071: "absensi yang perlu dicatat atau absensi yang belum
-        // lengkap". Empty: no record yet while the kelas has students.
-        // Incomplete: some records, but a student of the kelas who had joined
-        // by the session date has none (the same students the absensi form
-        // still accepts on a partly filled session).
+        // lengkap" (Jadwal::absensiBelumLengkap, shared with UC-10 3a).
         $belumDiisi = Jadwal::query()
             ->with('kelas')
             ->withCount('absensi')
@@ -129,16 +126,7 @@ class DashboardController extends Controller
             ->whereNotExists(fn ($final) => $final->selectRaw('1')->from('periode_gaji')
                 ->whereRaw(Sql::year('periode_gaji.periode').' = '.Sql::year('jadwal.tanggal'))
                 ->whereRaw(Sql::month('periode_gaji.periode').' = '.Sql::month('jadwal.tanggal')))
-            ->where(fn ($q) => $q
-                ->where(fn ($kosong) => $kosong->doesntHave('absensi')->whereHas('kelas.siswa'))
-                ->orWhere(fn ($sebagian) => $sebagian->has('absensi')->whereExists(fn ($siswa) => $siswa
-                    ->selectRaw('1')->from('siswa')
-                    ->whereColumn('siswa.kelas_id', 'jadwal.kelas_id')
-                    ->whereRaw('DATE(siswa.tanggal_bergabung) <= DATE(jadwal.tanggal)')
-                    ->whereNotExists(fn ($absensi) => $absensi
-                        ->selectRaw('1')->from('absensi')
-                        ->whereColumn('absensi.jadwal_id', 'jadwal.id')
-                        ->whereColumn('absensi.siswa_id', 'siswa.id')))));
+            ->absensiBelumLengkap();
 
         $hariIni = Jadwal::query()
             ->with('kelas')

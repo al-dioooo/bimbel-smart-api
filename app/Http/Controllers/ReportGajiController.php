@@ -48,8 +48,9 @@ class ReportGajiController extends Controller
 
     /**
      * Per-kelas breakdown behind one mentor's monthly total, with the
-     * adjustments of the same filter (all months, or ?bulan=). Finalized
-     * months come from the stored snapshot.
+     * adjustments of the same filter (all months, or ?bulan=) and the totals
+     * over every row of that filter (not just the page), for the admin and
+     * the mentor alike. Finalized months come from the stored snapshot.
      */
     public function show(ReportFilterRequest $request, $mentorId)
     {
@@ -66,6 +67,7 @@ class ReportGajiController extends Controller
             'message' => 'Rincian laporan gaji berhasil diambil.',
             'data' => $this->paginateCollection($rows, $request->query('limit') ?? 10, $request->query('paginate')),
             'penyesuaian' => $this->gaji->penyesuaian((int) $mentorId, $request->query('bulan')),
+            'total' => $this->gaji->total(['mentor_id' => (int) $mentorId] + $request->only(['bulan', 'from', 'to'])),
         ], 200);
     }
 
